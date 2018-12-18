@@ -16,956 +16,1634 @@
  * limitations under the License.
  *
  * Author: Dustin Graves <dustin@lunarg.com>
+ * Author: Mark Lobodzinski <mark@lunarg.com>
  */
 
-#ifndef PARAMETER_VALIDATION_UTILS_H
-#define PARAMETER_VALIDATION_UTILS_H
-
-#include <algorithm>
-#include <cstdlib>
-#include <string>
-#include <sstream>
-#include <bitset>
-#include <mutex>
-#include <unordered_map>
-#include <unordered_set>
-
-#include "vulkan/vulkan.h"
-#include "vk_enum_string_helper.h"
-#include "vk_layer_logging.h"
-#include "vk_extension_helper.h"
-#include "vk_layer_utils.h"
-
-#include "parameter_name.h"
-
-namespace parameter_validation {
-
-extern const uint32_t GeneratedHeaderVersion;
-extern const std::unordered_map<std::string, void *> name_to_funcptr_map;
-
-extern const VkQueryPipelineStatisticFlags AllVkQueryPipelineStatisticFlagBits;
-extern const VkColorComponentFlags AllVkColorComponentFlagBits;
-extern const VkShaderStageFlags AllVkShaderStageFlagBits;
-extern const VkQueryControlFlags AllVkQueryControlFlagBits;
-extern const VkImageUsageFlags AllVkImageUsageFlagBits;
-
-extern const std::vector<VkCompareOp> AllVkCompareOpEnums;
-extern const std::vector<VkStencilOp> AllVkStencilOpEnums;
-extern const std::vector<VkBlendFactor> AllVkBlendFactorEnums;
-extern const std::vector<VkBlendOp> AllVkBlendOpEnums;
-extern const std::vector<VkLogicOp> AllVkLogicOpEnums;
-extern const std::vector<VkBorderColor> AllVkBorderColorEnums;
-extern const std::vector<VkImageLayout> AllVkImageLayoutEnums;
-
-struct instance_layer_data {
-    VkInstance instance = VK_NULL_HANDLE;
-
-    debug_report_data *report_data = nullptr;
-    std::vector<VkDebugReportCallbackEXT> logging_callback;
-    std::vector<VkDebugUtilsMessengerEXT> logging_messenger;
-
-    // The following are for keeping track of the temporary callbacks that can
-    // be used in vkCreateInstance and vkDestroyInstance:
-    uint32_t num_tmp_report_callbacks = 0;
-    VkDebugReportCallbackCreateInfoEXT *tmp_report_create_infos = nullptr;
-    VkDebugReportCallbackEXT *tmp_report_callbacks = nullptr;
-    uint32_t num_tmp_debug_messengers = 0;
-    VkDebugUtilsMessengerCreateInfoEXT *tmp_messenger_create_infos = nullptr;
-    VkDebugUtilsMessengerEXT *tmp_debug_messengers = nullptr;
-
-    InstanceExtensions extensions = {};
-    VkLayerInstanceDispatchTable dispatch_table = {};
-    uint32_t api_version;
-};
-
-struct layer_data {
-    debug_report_data *report_data = nullptr;
-    // Map for queue family index to queue count
-    std::unordered_map<uint32_t, uint32_t> queueFamilyIndexMap;
-    VkPhysicalDeviceLimits device_limits = {};
-    VkPhysicalDeviceFeatures physical_device_features = {};
-    VkPhysicalDevice physical_device = VK_NULL_HANDLE;
-    VkDevice device = VK_NULL_HANDLE;
-    DeviceExtensions extensions;
-    uint32_t api_version;
-
-    // Device extension properties -- storing properties gathered from VkPhysicalDeviceProperties2KHR::pNext chain
-    struct DeviceExtensionProperties {
-        VkPhysicalDeviceShadingRateImagePropertiesNV shading_rate_image_props;
-        VkPhysicalDeviceMeshShaderPropertiesNV mesh_shader_props;
-    };
-    DeviceExtensionProperties phys_dev_ext_props = {};
-
-    struct SubpassesUsageStates {
-        std::unordered_set<uint32_t> subpasses_using_color_attachment;
-        std::unordered_set<uint32_t> subpasses_using_depthstencil_attachment;
-    };
-
-    std::unordered_map<VkRenderPass, SubpassesUsageStates> renderpasses_states;
-
-    VkLayerDispatchTable dispatch_table = {};
-};
-
-// Suppress unused warning on Linux
-#if defined(__GNUC__)
-#define DECORATE_UNUSED __attribute__((unused))
-#else
-#define DECORATE_UNUSED
+// Codegen'd function prototypes here
+// Need to move these to header file! 
+bool PreCallValidateCreateInstance(
+    const VkInstanceCreateInfo*                 pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkInstance*                                 pInstance);
+bool PreCallValidateDestroyInstance(
+    VkInstance                                  instance,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateEnumeratePhysicalDevices(
+    VkInstance                                  instance,
+    uint32_t*                                   pPhysicalDeviceCount,
+    VkPhysicalDevice*                           pPhysicalDevices);
+bool PreCallValidateGetPhysicalDeviceFeatures(
+    VkPhysicalDevice                            physicalDevice,
+    VkPhysicalDeviceFeatures*                   pFeatures);
+bool PreCallValidateGetPhysicalDeviceFormatProperties(
+    VkPhysicalDevice                            physicalDevice,
+    VkFormat                                    format,
+    VkFormatProperties*                         pFormatProperties);
+bool PreCallValidateGetPhysicalDeviceImageFormatProperties(
+    VkPhysicalDevice                            physicalDevice,
+    VkFormat                                    format,
+    VkImageType                                 type,
+    VkImageTiling                               tiling,
+    VkImageUsageFlags                           usage,
+    VkImageCreateFlags                          flags,
+    VkImageFormatProperties*                    pImageFormatProperties);
+bool PreCallValidateGetPhysicalDeviceProperties(
+    VkPhysicalDevice                            physicalDevice,
+    VkPhysicalDeviceProperties*                 pProperties);
+bool PreCallValidateGetPhysicalDeviceQueueFamilyProperties(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t*                                   pQueueFamilyPropertyCount,
+    VkQueueFamilyProperties*                    pQueueFamilyProperties);
+bool PreCallValidateGetPhysicalDeviceMemoryProperties(
+    VkPhysicalDevice                            physicalDevice,
+    VkPhysicalDeviceMemoryProperties*           pMemoryProperties);
+bool PreCallValidateCreateDevice(
+    VkPhysicalDevice                            physicalDevice,
+    const VkDeviceCreateInfo*                   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDevice*                                   pDevice);
+bool PreCallValidateDestroyDevice(
+    VkDevice                                    device,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateGetDeviceQueue(
+    VkDevice                                    device,
+    uint32_t                                    queueFamilyIndex,
+    uint32_t                                    queueIndex,
+    VkQueue*                                    pQueue);
+bool PreCallValidateQueueSubmit(
+    VkQueue                                     queue,
+    uint32_t                                    submitCount,
+    const VkSubmitInfo*                         pSubmits,
+    VkFence                                     fence);
+bool PreCallValidateQueueWaitIdle(
+    VkQueue                                     queue);
+bool PreCallValidateDeviceWaitIdle(
+    VkDevice                                    device);
+bool PreCallValidateAllocateMemory(
+    VkDevice                                    device,
+    const VkMemoryAllocateInfo*                 pAllocateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDeviceMemory*                             pMemory);
+bool PreCallValidateFreeMemory(
+    VkDevice                                    device,
+    VkDeviceMemory                              memory,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateMapMemory(
+    VkDevice                                    device,
+    VkDeviceMemory                              memory,
+    VkDeviceSize                                offset,
+    VkDeviceSize                                size,
+    VkMemoryMapFlags                            flags,
+    void**                                      ppData);
+bool PreCallValidateUnmapMemory(
+    VkDevice                                    device,
+    VkDeviceMemory                              memory);
+bool PreCallValidateFlushMappedMemoryRanges(
+    VkDevice                                    device,
+    uint32_t                                    memoryRangeCount,
+    const VkMappedMemoryRange*                  pMemoryRanges);
+bool PreCallValidateInvalidateMappedMemoryRanges(
+    VkDevice                                    device,
+    uint32_t                                    memoryRangeCount,
+    const VkMappedMemoryRange*                  pMemoryRanges);
+bool PreCallValidateGetDeviceMemoryCommitment(
+    VkDevice                                    device,
+    VkDeviceMemory                              memory,
+    VkDeviceSize*                               pCommittedMemoryInBytes);
+bool PreCallValidateBindBufferMemory(
+    VkDevice                                    device,
+    VkBuffer                                    buffer,
+    VkDeviceMemory                              memory,
+    VkDeviceSize                                memoryOffset);
+bool PreCallValidateBindImageMemory(
+    VkDevice                                    device,
+    VkImage                                     image,
+    VkDeviceMemory                              memory,
+    VkDeviceSize                                memoryOffset);
+bool PreCallValidateGetBufferMemoryRequirements(
+    VkDevice                                    device,
+    VkBuffer                                    buffer,
+    VkMemoryRequirements*                       pMemoryRequirements);
+bool PreCallValidateGetImageMemoryRequirements(
+    VkDevice                                    device,
+    VkImage                                     image,
+    VkMemoryRequirements*                       pMemoryRequirements);
+bool PreCallValidateGetImageSparseMemoryRequirements(
+    VkDevice                                    device,
+    VkImage                                     image,
+    uint32_t*                                   pSparseMemoryRequirementCount,
+    VkSparseImageMemoryRequirements*            pSparseMemoryRequirements);
+bool PreCallValidateGetPhysicalDeviceSparseImageFormatProperties(
+    VkPhysicalDevice                            physicalDevice,
+    VkFormat                                    format,
+    VkImageType                                 type,
+    VkSampleCountFlagBits                       samples,
+    VkImageUsageFlags                           usage,
+    VkImageTiling                               tiling,
+    uint32_t*                                   pPropertyCount,
+    VkSparseImageFormatProperties*              pProperties);
+bool PreCallValidateQueueBindSparse(
+    VkQueue                                     queue,
+    uint32_t                                    bindInfoCount,
+    const VkBindSparseInfo*                     pBindInfo,
+    VkFence                                     fence);
+bool PreCallValidateCreateFence(
+    VkDevice                                    device,
+    const VkFenceCreateInfo*                    pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkFence*                                    pFence);
+bool PreCallValidateDestroyFence(
+    VkDevice                                    device,
+    VkFence                                     fence,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateResetFences(
+    VkDevice                                    device,
+    uint32_t                                    fenceCount,
+    const VkFence*                              pFences);
+bool PreCallValidateGetFenceStatus(
+    VkDevice                                    device,
+    VkFence                                     fence);
+bool PreCallValidateWaitForFences(
+    VkDevice                                    device,
+    uint32_t                                    fenceCount,
+    const VkFence*                              pFences,
+    VkBool32                                    waitAll,
+    uint64_t                                    timeout);
+bool PreCallValidateCreateSemaphore(
+    VkDevice                                    device,
+    const VkSemaphoreCreateInfo*                pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSemaphore*                                pSemaphore);
+bool PreCallValidateDestroySemaphore(
+    VkDevice                                    device,
+    VkSemaphore                                 semaphore,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreateEvent(
+    VkDevice                                    device,
+    const VkEventCreateInfo*                    pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkEvent*                                    pEvent);
+bool PreCallValidateDestroyEvent(
+    VkDevice                                    device,
+    VkEvent                                     event,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateGetEventStatus(
+    VkDevice                                    device,
+    VkEvent                                     event);
+bool PreCallValidateSetEvent(
+    VkDevice                                    device,
+    VkEvent                                     event);
+bool PreCallValidateResetEvent(
+    VkDevice                                    device,
+    VkEvent                                     event);
+bool PreCallValidateCreateQueryPool(
+    VkDevice                                    device,
+    const VkQueryPoolCreateInfo*                pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkQueryPool*                                pQueryPool);
+bool PreCallValidateDestroyQueryPool(
+    VkDevice                                    device,
+    VkQueryPool                                 queryPool,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateGetQueryPoolResults(
+    VkDevice                                    device,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    firstQuery,
+    uint32_t                                    queryCount,
+    size_t                                      dataSize,
+    void*                                       pData,
+    VkDeviceSize                                stride,
+    VkQueryResultFlags                          flags);
+bool PreCallValidateCreateBuffer(
+    VkDevice                                    device,
+    const VkBufferCreateInfo*                   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkBuffer*                                   pBuffer);
+bool PreCallValidateDestroyBuffer(
+    VkDevice                                    device,
+    VkBuffer                                    buffer,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreateBufferView(
+    VkDevice                                    device,
+    const VkBufferViewCreateInfo*               pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkBufferView*                               pView);
+bool PreCallValidateDestroyBufferView(
+    VkDevice                                    device,
+    VkBufferView                                bufferView,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreateImage(
+    VkDevice                                    device,
+    const VkImageCreateInfo*                    pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkImage*                                    pImage);
+bool PreCallValidateDestroyImage(
+    VkDevice                                    device,
+    VkImage                                     image,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateGetImageSubresourceLayout(
+    VkDevice                                    device,
+    VkImage                                     image,
+    const VkImageSubresource*                   pSubresource,
+    VkSubresourceLayout*                        pLayout);
+bool PreCallValidateCreateImageView(
+    VkDevice                                    device,
+    const VkImageViewCreateInfo*                pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkImageView*                                pView);
+bool PreCallValidateDestroyImageView(
+    VkDevice                                    device,
+    VkImageView                                 imageView,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreateShaderModule(
+    VkDevice                                    device,
+    const VkShaderModuleCreateInfo*             pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkShaderModule*                             pShaderModule);
+bool PreCallValidateDestroyShaderModule(
+    VkDevice                                    device,
+    VkShaderModule                              shaderModule,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreatePipelineCache(
+    VkDevice                                    device,
+    const VkPipelineCacheCreateInfo*            pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkPipelineCache*                            pPipelineCache);
+bool PreCallValidateDestroyPipelineCache(
+    VkDevice                                    device,
+    VkPipelineCache                             pipelineCache,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateGetPipelineCacheData(
+    VkDevice                                    device,
+    VkPipelineCache                             pipelineCache,
+    size_t*                                     pDataSize,
+    void*                                       pData);
+bool PreCallValidateMergePipelineCaches(
+    VkDevice                                    device,
+    VkPipelineCache                             dstCache,
+    uint32_t                                    srcCacheCount,
+    const VkPipelineCache*                      pSrcCaches);
+bool PreCallValidateCreateGraphicsPipelines(
+    VkDevice                                    device,
+    VkPipelineCache                             pipelineCache,
+    uint32_t                                    createInfoCount,
+    const VkGraphicsPipelineCreateInfo*         pCreateInfos,
+    const VkAllocationCallbacks*                pAllocator,
+    VkPipeline*                                 pPipelines);
+bool PreCallValidateCreateComputePipelines(
+    VkDevice                                    device,
+    VkPipelineCache                             pipelineCache,
+    uint32_t                                    createInfoCount,
+    const VkComputePipelineCreateInfo*          pCreateInfos,
+    const VkAllocationCallbacks*                pAllocator,
+    VkPipeline*                                 pPipelines);
+bool PreCallValidateDestroyPipeline(
+    VkDevice                                    device,
+    VkPipeline                                  pipeline,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreatePipelineLayout(
+    VkDevice                                    device,
+    const VkPipelineLayoutCreateInfo*           pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkPipelineLayout*                           pPipelineLayout);
+bool PreCallValidateDestroyPipelineLayout(
+    VkDevice                                    device,
+    VkPipelineLayout                            pipelineLayout,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreateSampler(
+    VkDevice                                    device,
+    const VkSamplerCreateInfo*                  pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSampler*                                  pSampler);
+bool PreCallValidateDestroySampler(
+    VkDevice                                    device,
+    VkSampler                                   sampler,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreateDescriptorSetLayout(
+    VkDevice                                    device,
+    const VkDescriptorSetLayoutCreateInfo*      pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDescriptorSetLayout*                      pSetLayout);
+bool PreCallValidateDestroyDescriptorSetLayout(
+    VkDevice                                    device,
+    VkDescriptorSetLayout                       descriptorSetLayout,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreateDescriptorPool(
+    VkDevice                                    device,
+    const VkDescriptorPoolCreateInfo*           pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDescriptorPool*                           pDescriptorPool);
+bool PreCallValidateDestroyDescriptorPool(
+    VkDevice                                    device,
+    VkDescriptorPool                            descriptorPool,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateResetDescriptorPool(
+    VkDevice                                    device,
+    VkDescriptorPool                            descriptorPool,
+    VkDescriptorPoolResetFlags                  flags);
+bool PreCallValidateAllocateDescriptorSets(
+    VkDevice                                    device,
+    const VkDescriptorSetAllocateInfo*          pAllocateInfo,
+    VkDescriptorSet*                            pDescriptorSets);
+bool PreCallValidateFreeDescriptorSets(
+    VkDevice                                    device,
+    VkDescriptorPool                            descriptorPool,
+    uint32_t                                    descriptorSetCount,
+    const VkDescriptorSet*                      pDescriptorSets);
+bool PreCallValidateUpdateDescriptorSets(
+    VkDevice                                    device,
+    uint32_t                                    descriptorWriteCount,
+    const VkWriteDescriptorSet*                 pDescriptorWrites,
+    uint32_t                                    descriptorCopyCount,
+    const VkCopyDescriptorSet*                  pDescriptorCopies);
+bool PreCallValidateCreateFramebuffer(
+    VkDevice                                    device,
+    const VkFramebufferCreateInfo*              pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkFramebuffer*                              pFramebuffer);
+bool PreCallValidateDestroyFramebuffer(
+    VkDevice                                    device,
+    VkFramebuffer                               framebuffer,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreateRenderPass(
+    VkDevice                                    device,
+    const VkRenderPassCreateInfo*               pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkRenderPass*                               pRenderPass);
+bool PreCallValidateDestroyRenderPass(
+    VkDevice                                    device,
+    VkRenderPass                                renderPass,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateGetRenderAreaGranularity(
+    VkDevice                                    device,
+    VkRenderPass                                renderPass,
+    VkExtent2D*                                 pGranularity);
+bool PreCallValidateCreateCommandPool(
+    VkDevice                                    device,
+    const VkCommandPoolCreateInfo*              pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkCommandPool*                              pCommandPool);
+bool PreCallValidateDestroyCommandPool(
+    VkDevice                                    device,
+    VkCommandPool                               commandPool,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateResetCommandPool(
+    VkDevice                                    device,
+    VkCommandPool                               commandPool,
+    VkCommandPoolResetFlags                     flags);
+bool PreCallValidateAllocateCommandBuffers(
+    VkDevice                                    device,
+    const VkCommandBufferAllocateInfo*          pAllocateInfo,
+    VkCommandBuffer*                            pCommandBuffers);
+bool PreCallValidateFreeCommandBuffers(
+    VkDevice                                    device,
+    VkCommandPool                               commandPool,
+    uint32_t                                    commandBufferCount,
+    const VkCommandBuffer*                      pCommandBuffers);
+bool PreCallValidateBeginCommandBuffer(
+    VkCommandBuffer                             commandBuffer,
+    const VkCommandBufferBeginInfo*             pBeginInfo);
+bool PreCallValidateEndCommandBuffer(
+    VkCommandBuffer                             commandBuffer);
+bool PreCallValidateResetCommandBuffer(
+    VkCommandBuffer                             commandBuffer,
+    VkCommandBufferResetFlags                   flags);
+bool PreCallValidateCmdBindPipeline(
+    VkCommandBuffer                             commandBuffer,
+    VkPipelineBindPoint                         pipelineBindPoint,
+    VkPipeline                                  pipeline);
+bool PreCallValidateCmdSetViewport(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstViewport,
+    uint32_t                                    viewportCount,
+    const VkViewport*                           pViewports);
+bool PreCallValidateCmdSetScissor(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstScissor,
+    uint32_t                                    scissorCount,
+    const VkRect2D*                             pScissors);
+bool PreCallValidateCmdSetLineWidth(
+    VkCommandBuffer                             commandBuffer,
+    float                                       lineWidth);
+bool PreCallValidateCmdSetDepthBias(
+    VkCommandBuffer                             commandBuffer,
+    float                                       depthBiasConstantFactor,
+    float                                       depthBiasClamp,
+    float                                       depthBiasSlopeFactor);
+bool PreCallValidateCmdSetBlendConstants(
+    VkCommandBuffer                             commandBuffer,
+    const float                                 blendConstants[4]);
+bool PreCallValidateCmdSetDepthBounds(
+    VkCommandBuffer                             commandBuffer,
+    float                                       minDepthBounds,
+    float                                       maxDepthBounds);
+bool PreCallValidateCmdSetStencilCompareMask(
+    VkCommandBuffer                             commandBuffer,
+    VkStencilFaceFlags                          faceMask,
+    uint32_t                                    compareMask);
+bool PreCallValidateCmdSetStencilWriteMask(
+    VkCommandBuffer                             commandBuffer,
+    VkStencilFaceFlags                          faceMask,
+    uint32_t                                    writeMask);
+bool PreCallValidateCmdSetStencilReference(
+    VkCommandBuffer                             commandBuffer,
+    VkStencilFaceFlags                          faceMask,
+    uint32_t                                    reference);
+bool PreCallValidateCmdBindDescriptorSets(
+    VkCommandBuffer                             commandBuffer,
+    VkPipelineBindPoint                         pipelineBindPoint,
+    VkPipelineLayout                            layout,
+    uint32_t                                    firstSet,
+    uint32_t                                    descriptorSetCount,
+    const VkDescriptorSet*                      pDescriptorSets,
+    uint32_t                                    dynamicOffsetCount,
+    const uint32_t*                             pDynamicOffsets);
+bool PreCallValidateCmdBindIndexBuffer(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    buffer,
+    VkDeviceSize                                offset,
+    VkIndexType                                 indexType);
+bool PreCallValidateCmdBindVertexBuffers(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstBinding,
+    uint32_t                                    bindingCount,
+    const VkBuffer*                             pBuffers,
+    const VkDeviceSize*                         pOffsets);
+bool PreCallValidateCmdDraw(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    vertexCount,
+    uint32_t                                    instanceCount,
+    uint32_t                                    firstVertex,
+    uint32_t                                    firstInstance);
+bool PreCallValidateCmdDrawIndexed(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    indexCount,
+    uint32_t                                    instanceCount,
+    uint32_t                                    firstIndex,
+    int32_t                                     vertexOffset,
+    uint32_t                                    firstInstance);
+bool PreCallValidateCmdDrawIndirect(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    buffer,
+    VkDeviceSize                                offset,
+    uint32_t                                    drawCount,
+    uint32_t                                    stride);
+bool PreCallValidateCmdDrawIndexedIndirect(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    buffer,
+    VkDeviceSize                                offset,
+    uint32_t                                    drawCount,
+    uint32_t                                    stride);
+bool PreCallValidateCmdDispatch(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    groupCountX,
+    uint32_t                                    groupCountY,
+    uint32_t                                    groupCountZ);
+bool PreCallValidateCmdDispatchIndirect(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    buffer,
+    VkDeviceSize                                offset);
+bool PreCallValidateCmdCopyBuffer(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    srcBuffer,
+    VkBuffer                                    dstBuffer,
+    uint32_t                                    regionCount,
+    const VkBufferCopy*                         pRegions);
+bool PreCallValidateCmdCopyImage(
+    VkCommandBuffer                             commandBuffer,
+    VkImage                                     srcImage,
+    VkImageLayout                               srcImageLayout,
+    VkImage                                     dstImage,
+    VkImageLayout                               dstImageLayout,
+    uint32_t                                    regionCount,
+    const VkImageCopy*                          pRegions);
+bool PreCallValidateCmdBlitImage(
+    VkCommandBuffer                             commandBuffer,
+    VkImage                                     srcImage,
+    VkImageLayout                               srcImageLayout,
+    VkImage                                     dstImage,
+    VkImageLayout                               dstImageLayout,
+    uint32_t                                    regionCount,
+    const VkImageBlit*                          pRegions,
+    VkFilter                                    filter);
+bool PreCallValidateCmdCopyBufferToImage(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    srcBuffer,
+    VkImage                                     dstImage,
+    VkImageLayout                               dstImageLayout,
+    uint32_t                                    regionCount,
+    const VkBufferImageCopy*                    pRegions);
+bool PreCallValidateCmdCopyImageToBuffer(
+    VkCommandBuffer                             commandBuffer,
+    VkImage                                     srcImage,
+    VkImageLayout                               srcImageLayout,
+    VkBuffer                                    dstBuffer,
+    uint32_t                                    regionCount,
+    const VkBufferImageCopy*                    pRegions);
+bool PreCallValidateCmdUpdateBuffer(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    dstBuffer,
+    VkDeviceSize                                dstOffset,
+    VkDeviceSize                                dataSize,
+    const void*                                 pData);
+bool PreCallValidateCmdFillBuffer(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    dstBuffer,
+    VkDeviceSize                                dstOffset,
+    VkDeviceSize                                size,
+    uint32_t                                    data);
+bool PreCallValidateCmdClearColorImage(
+    VkCommandBuffer                             commandBuffer,
+    VkImage                                     image,
+    VkImageLayout                               imageLayout,
+    const VkClearColorValue*                    pColor,
+    uint32_t                                    rangeCount,
+    const VkImageSubresourceRange*              pRanges);
+bool PreCallValidateCmdClearDepthStencilImage(
+    VkCommandBuffer                             commandBuffer,
+    VkImage                                     image,
+    VkImageLayout                               imageLayout,
+    const VkClearDepthStencilValue*             pDepthStencil,
+    uint32_t                                    rangeCount,
+    const VkImageSubresourceRange*              pRanges);
+bool PreCallValidateCmdClearAttachments(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    attachmentCount,
+    const VkClearAttachment*                    pAttachments,
+    uint32_t                                    rectCount,
+    const VkClearRect*                          pRects);
+bool PreCallValidateCmdResolveImage(
+    VkCommandBuffer                             commandBuffer,
+    VkImage                                     srcImage,
+    VkImageLayout                               srcImageLayout,
+    VkImage                                     dstImage,
+    VkImageLayout                               dstImageLayout,
+    uint32_t                                    regionCount,
+    const VkImageResolve*                       pRegions);
+bool PreCallValidateCmdSetEvent(
+    VkCommandBuffer                             commandBuffer,
+    VkEvent                                     event,
+    VkPipelineStageFlags                        stageMask);
+bool PreCallValidateCmdResetEvent(
+    VkCommandBuffer                             commandBuffer,
+    VkEvent                                     event,
+    VkPipelineStageFlags                        stageMask);
+bool PreCallValidateCmdWaitEvents(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    eventCount,
+    const VkEvent*                              pEvents,
+    VkPipelineStageFlags                        srcStageMask,
+    VkPipelineStageFlags                        dstStageMask,
+    uint32_t                                    memoryBarrierCount,
+    const VkMemoryBarrier*                      pMemoryBarriers,
+    uint32_t                                    bufferMemoryBarrierCount,
+    const VkBufferMemoryBarrier*                pBufferMemoryBarriers,
+    uint32_t                                    imageMemoryBarrierCount,
+    const VkImageMemoryBarrier*                 pImageMemoryBarriers);
+bool PreCallValidateCmdPipelineBarrier(
+    VkCommandBuffer                             commandBuffer,
+    VkPipelineStageFlags                        srcStageMask,
+    VkPipelineStageFlags                        dstStageMask,
+    VkDependencyFlags                           dependencyFlags,
+    uint32_t                                    memoryBarrierCount,
+    const VkMemoryBarrier*                      pMemoryBarriers,
+    uint32_t                                    bufferMemoryBarrierCount,
+    const VkBufferMemoryBarrier*                pBufferMemoryBarriers,
+    uint32_t                                    imageMemoryBarrierCount,
+    const VkImageMemoryBarrier*                 pImageMemoryBarriers);
+bool PreCallValidateCmdBeginQuery(
+    VkCommandBuffer                             commandBuffer,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    query,
+    VkQueryControlFlags                         flags);
+bool PreCallValidateCmdEndQuery(
+    VkCommandBuffer                             commandBuffer,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    query);
+bool PreCallValidateCmdResetQueryPool(
+    VkCommandBuffer                             commandBuffer,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    firstQuery,
+    uint32_t                                    queryCount);
+bool PreCallValidateCmdWriteTimestamp(
+    VkCommandBuffer                             commandBuffer,
+    VkPipelineStageFlagBits                     pipelineStage,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    query);
+bool PreCallValidateCmdCopyQueryPoolResults(
+    VkCommandBuffer                             commandBuffer,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    firstQuery,
+    uint32_t                                    queryCount,
+    VkBuffer                                    dstBuffer,
+    VkDeviceSize                                dstOffset,
+    VkDeviceSize                                stride,
+    VkQueryResultFlags                          flags);
+bool PreCallValidateCmdPushConstants(
+    VkCommandBuffer                             commandBuffer,
+    VkPipelineLayout                            layout,
+    VkShaderStageFlags                          stageFlags,
+    uint32_t                                    offset,
+    uint32_t                                    size,
+    const void*                                 pValues);
+bool PreCallValidateCmdBeginRenderPass(
+    VkCommandBuffer                             commandBuffer,
+    const VkRenderPassBeginInfo*                pRenderPassBegin,
+    VkSubpassContents                           contents);
+bool PreCallValidateCmdNextSubpass(
+    VkCommandBuffer                             commandBuffer,
+    VkSubpassContents                           contents);
+bool PreCallValidateCmdEndRenderPass(
+    VkCommandBuffer                             commandBuffer);
+bool PreCallValidateCmdExecuteCommands(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    commandBufferCount,
+    const VkCommandBuffer*                      pCommandBuffers);
+bool PreCallValidateBindBufferMemory2(
+    VkDevice                                    device,
+    uint32_t                                    bindInfoCount,
+    const VkBindBufferMemoryInfo*               pBindInfos);
+bool PreCallValidateBindImageMemory2(
+    VkDevice                                    device,
+    uint32_t                                    bindInfoCount,
+    const VkBindImageMemoryInfo*                pBindInfos);
+bool PreCallValidateGetDeviceGroupPeerMemoryFeatures(
+    VkDevice                                    device,
+    uint32_t                                    heapIndex,
+    uint32_t                                    localDeviceIndex,
+    uint32_t                                    remoteDeviceIndex,
+    VkPeerMemoryFeatureFlags*                   pPeerMemoryFeatures);
+bool PreCallValidateCmdSetDeviceMask(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    deviceMask);
+bool PreCallValidateCmdDispatchBase(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    baseGroupX,
+    uint32_t                                    baseGroupY,
+    uint32_t                                    baseGroupZ,
+    uint32_t                                    groupCountX,
+    uint32_t                                    groupCountY,
+    uint32_t                                    groupCountZ);
+bool PreCallValidateEnumeratePhysicalDeviceGroups(
+    VkInstance                                  instance,
+    uint32_t*                                   pPhysicalDeviceGroupCount,
+    VkPhysicalDeviceGroupProperties*            pPhysicalDeviceGroupProperties);
+bool PreCallValidateGetImageMemoryRequirements2(
+    VkDevice                                    device,
+    const VkImageMemoryRequirementsInfo2*       pInfo,
+    VkMemoryRequirements2*                      pMemoryRequirements);
+bool PreCallValidateGetBufferMemoryRequirements2(
+    VkDevice                                    device,
+    const VkBufferMemoryRequirementsInfo2*      pInfo,
+    VkMemoryRequirements2*                      pMemoryRequirements);
+bool PreCallValidateGetImageSparseMemoryRequirements2(
+    VkDevice                                    device,
+    const VkImageSparseMemoryRequirementsInfo2* pInfo,
+    uint32_t*                                   pSparseMemoryRequirementCount,
+    VkSparseImageMemoryRequirements2*           pSparseMemoryRequirements);
+bool PreCallValidateGetPhysicalDeviceFeatures2(
+    VkPhysicalDevice                            physicalDevice,
+    VkPhysicalDeviceFeatures2*                  pFeatures);
+bool PreCallValidateGetPhysicalDeviceProperties2(
+    VkPhysicalDevice                            physicalDevice,
+    VkPhysicalDeviceProperties2*                pProperties);
+bool PreCallValidateGetPhysicalDeviceFormatProperties2(
+    VkPhysicalDevice                            physicalDevice,
+    VkFormat                                    format,
+    VkFormatProperties2*                        pFormatProperties);
+bool PreCallValidateGetPhysicalDeviceImageFormatProperties2(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceImageFormatInfo2*     pImageFormatInfo,
+    VkImageFormatProperties2*                   pImageFormatProperties);
+bool PreCallValidateGetPhysicalDeviceQueueFamilyProperties2(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t*                                   pQueueFamilyPropertyCount,
+    VkQueueFamilyProperties2*                   pQueueFamilyProperties);
+bool PreCallValidateGetPhysicalDeviceMemoryProperties2(
+    VkPhysicalDevice                            physicalDevice,
+    VkPhysicalDeviceMemoryProperties2*          pMemoryProperties);
+bool PreCallValidateGetPhysicalDeviceSparseImageFormatProperties2(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceSparseImageFormatInfo2* pFormatInfo,
+    uint32_t*                                   pPropertyCount,
+    VkSparseImageFormatProperties2*             pProperties);
+bool PreCallValidateTrimCommandPool(
+    VkDevice                                    device,
+    VkCommandPool                               commandPool,
+    VkCommandPoolTrimFlags                      flags);
+bool PreCallValidateGetDeviceQueue2(
+    VkDevice                                    device,
+    const VkDeviceQueueInfo2*                   pQueueInfo,
+    VkQueue*                                    pQueue);
+bool PreCallValidateCreateSamplerYcbcrConversion(
+    VkDevice                                    device,
+    const VkSamplerYcbcrConversionCreateInfo*   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSamplerYcbcrConversion*                   pYcbcrConversion);
+bool PreCallValidateDestroySamplerYcbcrConversion(
+    VkDevice                                    device,
+    VkSamplerYcbcrConversion                    ycbcrConversion,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreateDescriptorUpdateTemplate(
+    VkDevice                                    device,
+    const VkDescriptorUpdateTemplateCreateInfo* pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDescriptorUpdateTemplate*                 pDescriptorUpdateTemplate);
+bool PreCallValidateDestroyDescriptorUpdateTemplate(
+    VkDevice                                    device,
+    VkDescriptorUpdateTemplate                  descriptorUpdateTemplate,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateUpdateDescriptorSetWithTemplate(
+    VkDevice                                    device,
+    VkDescriptorSet                             descriptorSet,
+    VkDescriptorUpdateTemplate                  descriptorUpdateTemplate,
+    const void*                                 pData);
+bool PreCallValidateGetPhysicalDeviceExternalBufferProperties(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceExternalBufferInfo*   pExternalBufferInfo,
+    VkExternalBufferProperties*                 pExternalBufferProperties);
+bool PreCallValidateGetPhysicalDeviceExternalFenceProperties(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceExternalFenceInfo*    pExternalFenceInfo,
+    VkExternalFenceProperties*                  pExternalFenceProperties);
+bool PreCallValidateGetPhysicalDeviceExternalSemaphoreProperties(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceExternalSemaphoreInfo* pExternalSemaphoreInfo,
+    VkExternalSemaphoreProperties*              pExternalSemaphoreProperties);
+bool PreCallValidateGetDescriptorSetLayoutSupport(
+    VkDevice                                    device,
+    const VkDescriptorSetLayoutCreateInfo*      pCreateInfo,
+    VkDescriptorSetLayoutSupport*               pSupport);
+bool PreCallValidateDestroySurfaceKHR(
+    VkInstance                                  instance,
+    VkSurfaceKHR                                surface,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateGetPhysicalDeviceSurfaceSupportKHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t                                    queueFamilyIndex,
+    VkSurfaceKHR                                surface,
+    VkBool32*                                   pSupported);
+bool PreCallValidateGetPhysicalDeviceSurfaceCapabilitiesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkSurfaceKHR                                surface,
+    VkSurfaceCapabilitiesKHR*                   pSurfaceCapabilities);
+bool PreCallValidateGetPhysicalDeviceSurfaceFormatsKHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkSurfaceKHR                                surface,
+    uint32_t*                                   pSurfaceFormatCount,
+    VkSurfaceFormatKHR*                         pSurfaceFormats);
+bool PreCallValidateGetPhysicalDeviceSurfacePresentModesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkSurfaceKHR                                surface,
+    uint32_t*                                   pPresentModeCount,
+    VkPresentModeKHR*                           pPresentModes);
+bool PreCallValidateCreateSwapchainKHR(
+    VkDevice                                    device,
+    const VkSwapchainCreateInfoKHR*             pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSwapchainKHR*                             pSwapchain);
+bool PreCallValidateDestroySwapchainKHR(
+    VkDevice                                    device,
+    VkSwapchainKHR                              swapchain,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateGetSwapchainImagesKHR(
+    VkDevice                                    device,
+    VkSwapchainKHR                              swapchain,
+    uint32_t*                                   pSwapchainImageCount,
+    VkImage*                                    pSwapchainImages);
+bool PreCallValidateAcquireNextImageKHR(
+    VkDevice                                    device,
+    VkSwapchainKHR                              swapchain,
+    uint64_t                                    timeout,
+    VkSemaphore                                 semaphore,
+    VkFence                                     fence,
+    uint32_t*                                   pImageIndex);
+bool PreCallValidateQueuePresentKHR(
+    VkQueue                                     queue,
+    const VkPresentInfoKHR*                     pPresentInfo);
+bool PreCallValidateGetDeviceGroupPresentCapabilitiesKHR(
+    VkDevice                                    device,
+    VkDeviceGroupPresentCapabilitiesKHR*        pDeviceGroupPresentCapabilities);
+bool PreCallValidateGetDeviceGroupSurfacePresentModesKHR(
+    VkDevice                                    device,
+    VkSurfaceKHR                                surface,
+    VkDeviceGroupPresentModeFlagsKHR*           pModes);
+bool PreCallValidateGetPhysicalDevicePresentRectanglesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkSurfaceKHR                                surface,
+    uint32_t*                                   pRectCount,
+    VkRect2D*                                   pRects);
+bool PreCallValidateAcquireNextImage2KHR(
+    VkDevice                                    device,
+    const VkAcquireNextImageInfoKHR*            pAcquireInfo,
+    uint32_t*                                   pImageIndex);
+bool PreCallValidateGetPhysicalDeviceDisplayPropertiesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t*                                   pPropertyCount,
+    VkDisplayPropertiesKHR*                     pProperties);
+bool PreCallValidateGetPhysicalDeviceDisplayPlanePropertiesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t*                                   pPropertyCount,
+    VkDisplayPlanePropertiesKHR*                pProperties);
+bool PreCallValidateGetDisplayPlaneSupportedDisplaysKHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t                                    planeIndex,
+    uint32_t*                                   pDisplayCount,
+    VkDisplayKHR*                               pDisplays);
+bool PreCallValidateGetDisplayModePropertiesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkDisplayKHR                                display,
+    uint32_t*                                   pPropertyCount,
+    VkDisplayModePropertiesKHR*                 pProperties);
+bool PreCallValidateCreateDisplayModeKHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkDisplayKHR                                display,
+    const VkDisplayModeCreateInfoKHR*           pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDisplayModeKHR*                           pMode);
+bool PreCallValidateGetDisplayPlaneCapabilitiesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkDisplayModeKHR                            mode,
+    uint32_t                                    planeIndex,
+    VkDisplayPlaneCapabilitiesKHR*              pCapabilities);
+bool PreCallValidateCreateDisplayPlaneSurfaceKHR(
+    VkInstance                                  instance,
+    const VkDisplaySurfaceCreateInfoKHR*        pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
+bool PreCallValidateCreateSharedSwapchainsKHR(
+    VkDevice                                    device,
+    uint32_t                                    swapchainCount,
+    const VkSwapchainCreateInfoKHR*             pCreateInfos,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSwapchainKHR*                             pSwapchains);
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+bool PreCallValidateCreateXlibSurfaceKHR(
+    VkInstance                                  instance,
+    const VkXlibSurfaceCreateInfoKHR*           pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
 #endif
-
-static const char DECORATE_UNUSED *kVUID_PVError_NONE = "UNASSIGNED-GeneralParameterError-Info";
-static const char DECORATE_UNUSED *kVUID_PVError_InvalidUsage = "UNASSIGNED-GeneralParameterError-InvalidUsage";
-static const char DECORATE_UNUSED *kVUID_PVError_InvalidStructSType = "UNASSIGNED-GeneralParameterError-InvalidStructSType";
-static const char DECORATE_UNUSED *kVUID_PVError_InvalidStructPNext = "UNASSIGNED-GeneralParameterError-InvalidStructPNext";
-static const char DECORATE_UNUSED *kVUID_PVError_RequiredParameter = "UNASSIGNED-GeneralParameterError-RequiredParameter";
-static const char DECORATE_UNUSED *kVUID_PVError_ReservedParameter = "UNASSIGNED-GeneralParameterError-ReservedParameter";
-static const char DECORATE_UNUSED *kVUID_PVError_UnrecognizedValue = "UNASSIGNED-GeneralParameterError-UnrecognizedValue";
-static const char DECORATE_UNUSED *kVUID_PVError_DeviceLimit = "UNASSIGNED-GeneralParameterError-DeviceLimit";
-static const char DECORATE_UNUSED *kVUID_PVError_DeviceFeature = "UNASSIGNED-GeneralParameterError-DeviceFeature";
-static const char DECORATE_UNUSED *kVUID_PVError_FailureCode = "UNASSIGNED-GeneralParameterError-FailureCode";
-static const char DECORATE_UNUSED *kVUID_PVError_ExtensionNotEnabled = "UNASSIGNED-GeneralParameterError-ExtensionNotEnabled";
-
-#undef DECORATE_UNUSED
-
-#if 0  // TBD - should see if we can add the expository text below into the spec reference string database
-enum ErrorCode {
-    NONE,                   // Used for INFO & other non-error messages
-    INVALID_USAGE,          // The value of a parameter is not consistent
-                            // with the valid usage criteria defined in
-                            // the Vulkan specification.
-    INVALID_STRUCT_STYPE,   // The sType field of a Vulkan structure does
-                            // not contain the value expected for a structure
-                            // of that type.
-    INVALID_STRUCT_PNEXT,   // The pNext field of a Vulkan structure references
-                            // a value that is not compatible with a structure of
-                            // that type or is not NULL when a structure of that
-                            // type has no compatible pNext values.
-    REQUIRED_PARAMETER,     // A required parameter was specified as 0 or NULL.
-    RESERVED_PARAMETER,     // A parameter reserved for future use was not
-                            // specified as 0 or NULL.
-    UNRECOGNIZED_VALUE,     // A Vulkan enumeration, VkFlags, or VkBool32 parameter
-                            // contains a value that is not recognized as valid for
-                            // that type.
-    DEVICE_LIMIT,           // A specified parameter exceeds the limits returned
-                            // by the physical device
-    DEVICE_FEATURE,         // Use of a requested feature is not supported by
-                            // the device
-    FAILURE_RETURN_CODE,    // A Vulkan return code indicating a failure condition
-                            // was encountered.
-    EXTENSION_NOT_ENABLED,  // An extension entrypoint was called, but the required
-                            // extension was not enabled at CreateInstance or
-                            // CreateDevice time.
-};
+#ifdef VK_USE_PLATFORM_XLIB_KHR
+bool PreCallValidateGetPhysicalDeviceXlibPresentationSupportKHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t                                    queueFamilyIndex,
+    Display*                                    dpy,
+    VisualID                                    visualID);
 #endif
-
-struct GenericHeader {
-    VkStructureType sType;
-    const void *pNext;
-};
-
-// String returned by string_VkStructureType for an unrecognized type.
-const std::string UnsupportedStructureTypeString = "Unhandled VkStructureType";
-
-// String returned by string_VkResult for an unrecognized type.
-const std::string UnsupportedResultString = "Unhandled VkResult";
-
-// The base value used when computing the offset for an enumeration token value that is added by an extension.
-// When validating enumeration tokens, any value >= to this value is considered to be provided by an extension.
-// See Appendix C.10 "Assigning Extension Token Values" from the Vulkan specification
-const uint32_t ExtEnumBaseValue = 1000000000;
-
-// The value of all VK_xxx_MAX_ENUM tokens
-const uint32_t MaxEnumValue = 0x7FFFFFFF;
-
-// Misc parameters of log_msg that are likely constant per command (or low frequency change)
-struct LogMiscParams {
-    const debug_report_data *debug_data;
-    VkDebugReportObjectTypeEXT objectType;
-    uint64_t srcObject;
-    const char *api_name;
-};
-
-// Pick up VUIDS from validated substructures. Many structures contain substructures.  In addition to the implicit VUs covered
-// when each of the substructures is parsed, there is often a VUID for 'xxx MUST be a valid XxxStruct'. If all implicit valid usage
-// is covered for a substructure, we should claim the VUID for the validity of the structure itself.
-static bool ValidateSubstructure(debug_report_data *report_data, const char *api_name, const char *struct_name,
-                                 const std::string &substructure_vuid) {
-    bool skip = false;
-    if (false) {
-        skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, substructure_vuid,
-                        "%s: parameter %s must be a valid structure.", api_name, struct_name);
-    }
-    return skip;
-}
-
-/**
- * Validate a minimum value.
- *
- * Verify that the specified value is greater than the specified lower bound.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param api_name Name of API call being validated.
- * @param parameter_name Name of parameter being validated.
- * @param value Value to validate.
- * @param lower_bound Lower bound value to use for validation.
- * @return Boolean value indicating that the call should be skipped.
- */
-template <typename T>
-bool ValidateGreaterThan(const T value, const T lower_bound, const ParameterName &parameter_name, const std::string &vuid,
-                         const LogMiscParams &misc) {
-    bool skip_call = false;
-
-    if (value <= lower_bound) {
-        std::ostringstream ss;
-        ss << misc.api_name << ": parameter " << parameter_name.get_name() << " (= " << value << ") is greater than "
-           << lower_bound;
-        skip_call |=
-            log_msg(misc.debug_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, misc.objectType, misc.srcObject, vuid, "%s", ss.str().c_str());
-    }
-
-    return skip_call;
-}
-
-template <typename T>
-bool ValidateGreaterThanZero(const T value, const ParameterName &parameter_name, const std::string &vuid,
-                             const LogMiscParams &misc) {
-    return ValidateGreaterThan(value, T{0}, parameter_name, vuid, misc);
-}
-/**
- * Validate a required pointer.
- *
- * Verify that a required pointer is not NULL.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param parameterName Name of parameter being validated.
- * @param value Pointer to validate.
- * @return Boolean value indicating that the call should be skipped.
- */
-static bool validate_required_pointer(debug_report_data *report_data, const char *apiName, const ParameterName &parameterName,
-                                      const void *value, const std::string &vuid) {
-    bool skip_call = false;
-
-    if (value == NULL) {
-        skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
-                             "%s: required parameter %s specified as NULL.", apiName, parameterName.get_name().c_str());
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate array count and pointer to array.
- *
- * Verify that required count and array parameters are not 0 or NULL.  If the
- * count parameter is not optional, verify that it is not 0.  If the array
- * parameter is NULL, and it is not optional, verify that count is 0.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param countName Name of count parameter.
- * @param arrayName Name of array parameter.
- * @param count Number of elements in the array.
- * @param array Array to validate.
- * @param countRequired The 'count' parameter may not be 0 when true.
- * @param arrayRequired The 'array' parameter may not be NULL when true.
- * @return Boolean value indicating that the call should be skipped.
- */
-template <typename T1, typename T2>
-bool validate_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
-                    const ParameterName &arrayName, T1 count, const T2 *array, bool countRequired, bool arrayRequired,
-                    const std::string &count_required_vuid, const std::string &array_required_vuid) {
-    bool skip_call = false;
-
-    // Count parameters not tagged as optional cannot be 0
-    if (countRequired && (count == 0)) {
-        skip_call |=
-            log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, count_required_vuid,
-                    "%s: parameter %s must be greater than 0.", apiName, countName.get_name().c_str());
-    }
-
-    // Array parameters not tagged as optional cannot be NULL, unless the count is 0
-    if (arrayRequired && (count != 0) && (*array == NULL)) {
-        skip_call |=
-            log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, array_required_vuid,
-                    "%s: required parameter %s specified as NULL.", apiName, arrayName.get_name().c_str());
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate pointer to array count and pointer to array.
- *
- * Verify that required count and array parameters are not NULL.  If count
- * is not NULL and its value is not optional, verify that it is not 0.  If the
- * array parameter is NULL, and it is not optional, verify that count is 0.
- * The array parameter will typically be optional for this case (where count is
- * a pointer), allowing the caller to retrieve the available count.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param countName Name of count parameter.
- * @param arrayName Name of array parameter.
- * @param count Pointer to the number of elements in the array.
- * @param array Array to validate.
- * @param countPtrRequired The 'count' parameter may not be NULL when true.
- * @param countValueRequired The '*count' value may not be 0 when true.
- * @param arrayRequired The 'array' parameter may not be NULL when true.
- * @return Boolean value indicating that the call should be skipped.
- */
-template <typename T1, typename T2>
-bool validate_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
-                    const ParameterName &arrayName, const T1 *count, const T2 *array, bool countPtrRequired,
-                    bool countValueRequired, bool arrayRequired, const std::string &count_required_vuid,
-                    const std::string &array_required_vuid) {
-    bool skip_call = false;
-
-    if (count == NULL) {
-        if (countPtrRequired) {
-            skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                 kVUID_PVError_RequiredParameter, "%s: required parameter %s specified as NULL", apiName,
-                                 countName.get_name().c_str());
-        }
-    } else {
-        skip_call |= validate_array(report_data, apiName, countName, arrayName, *array ? (*count) : 0, &array, countValueRequired,
-                                    arrayRequired, count_required_vuid, array_required_vuid);
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate a pointer to a Vulkan structure.
- *
- * Verify that a required pointer to a structure is not NULL.  If the pointer is
- * not NULL, verify that each structure's sType field is set to the correct
- * VkStructureType value.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param parameterName Name of struct parameter being validated.
- * @param sTypeName Name of expected VkStructureType value.
- * @param value Pointer to the struct to validate.
- * @param sType VkStructureType for structure validation.
- * @param required The parameter may not be NULL when true.
- * @return Boolean value indicating that the call should be skipped.
- */
-template <typename T>
-bool validate_struct_type(debug_report_data *report_data, const char *apiName, const ParameterName &parameterName,
-                          const char *sTypeName, const T *value, VkStructureType sType, bool required,
-                          const std::string &struct_vuid, const std::string &stype_vuid) {
-    bool skip_call = false;
-
-    if (value == NULL) {
-        if (required) {
-            skip_call |=
-                log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, struct_vuid,
-                        "%s: required parameter %s specified as NULL", apiName, parameterName.get_name().c_str());
-        }
-    } else if (value->sType != sType) {
-        skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, stype_vuid,
-                             "%s: parameter %s->sType must be %s.", apiName, parameterName.get_name().c_str(), sTypeName);
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate an array of Vulkan structures
- *
- * Verify that required count and array parameters are not 0 or NULL.  If
- * the array contains 1 or more structures, verify that each structure's
- * sType field is set to the correct VkStructureType value.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param countName Name of count parameter.
- * @param arrayName Name of array parameter.
- * @param sTypeName Name of expected VkStructureType value.
- * @param count Number of elements in the array.
- * @param array Array to validate.
- * @param sType VkStructureType for structure validation.
- * @param countRequired The 'count' parameter may not be 0 when true.
- * @param arrayRequired The 'array' parameter may not be NULL when true.
- * @return Boolean value indicating that the call should be skipped.
- */
-template <typename T>
-bool validate_struct_type_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
-                                const ParameterName &arrayName, const char *sTypeName, uint32_t count, const T *array,
-                                VkStructureType sType, bool countRequired, bool arrayRequired, const std::string &stype_vuid,
-                                const std::string &param_vuid) {
-    bool skip_call = false;
-
-    if ((count == 0) || (array == NULL)) {
-        skip_call |= validate_array(report_data, apiName, countName, arrayName, count, &array, countRequired, arrayRequired,
-                                    kVUIDUndefined, param_vuid);
-    } else {
-        // Verify that all structs in the array have the correct type
-        for (uint32_t i = 0; i < count; ++i) {
-            if (array[i].sType != sType) {
-                skip_call |=
-                    log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, stype_vuid,
-                            "%s: parameter %s[%d].sType must be %s", apiName, arrayName.get_name().c_str(), i, sTypeName);
-            }
-        }
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate an array of Vulkan structures.
- *
- * Verify that required count and array parameters are not NULL.  If count
- * is not NULL and its value is not optional, verify that it is not 0.
- * If the array contains 1 or more structures, verify that each structure's
- * sType field is set to the correct VkStructureType value.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param countName Name of count parameter.
- * @param arrayName Name of array parameter.
- * @param sTypeName Name of expected VkStructureType value.
- * @param count Pointer to the number of elements in the array.
- * @param array Array to validate.
- * @param sType VkStructureType for structure validation.
- * @param countPtrRequired The 'count' parameter may not be NULL when true.
- * @param countValueRequired The '*count' value may not be 0 when true.
- * @param arrayRequired The 'array' parameter may not be NULL when true.
- * @return Boolean value indicating that the call should be skipped.
- */
-template <typename T>
-bool validate_struct_type_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
-                                const ParameterName &arrayName, const char *sTypeName, uint32_t *count, const T *array,
-                                VkStructureType sType, bool countPtrRequired, bool countValueRequired, bool arrayRequired,
-                                const std::string &stype_vuid, const std::string &param_vuid) {
-    bool skip_call = false;
-
-    if (count == NULL) {
-        if (countPtrRequired) {
-            skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                 kVUID_PVError_RequiredParameter, "%s: required parameter %s specified as NULL", apiName,
-                                 countName.get_name().c_str());
-        }
-    } else {
-        skip_call |= validate_struct_type_array(report_data, apiName, countName, arrayName, sTypeName, (*count), array, sType,
-                                                countValueRequired, arrayRequired, stype_vuid, param_vuid);
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate a Vulkan handle.
- *
- * Verify that the specified handle is not VK_NULL_HANDLE.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param api_name Name of API call being validated.
- * @param parameter_name Name of struct parameter being validated.
- * @param value Handle to validate.
- * @return Boolean value indicating that the call should be skipped.
- */
-template <typename T>
-bool validate_required_handle(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name, T value) {
-    bool skip_call = false;
-
-    if (value == VK_NULL_HANDLE) {
-        skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                             kVUID_PVError_RequiredParameter, "%s: required parameter %s specified as VK_NULL_HANDLE", api_name,
-                             parameter_name.get_name().c_str());
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate an array of Vulkan handles.
- *
- * Verify that required count and array parameters are not NULL.  If count
- * is not NULL and its value is not optional, verify that it is not 0.
- * If the array contains 1 or more handles, verify that no handle is set to
- * VK_NULL_HANDLE.
- *
- * @note This function is only intended to validate arrays of handles when none
- *       of the handles are allowed to be VK_NULL_HANDLE.  For arrays of handles
- *       that are allowed to contain VK_NULL_HANDLE, use validate_array() instead.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param api_name Name of API call being validated.
- * @param count_name Name of count parameter.
- * @param array_name Name of array parameter.
- * @param count Number of elements in the array.
- * @param array Array to validate.
- * @param count_required The 'count' parameter may not be 0 when true.
- * @param array_required The 'array' parameter may not be NULL when true.
- * @return Boolean value indicating that the call should be skipped.
- */
-template <typename T>
-bool validate_handle_array(debug_report_data *report_data, const char *api_name, const ParameterName &count_name,
-                           const ParameterName &array_name, uint32_t count, const T *array, bool count_required,
-                           bool array_required) {
-    bool skip_call = false;
-
-    if ((count == 0) || (array == NULL)) {
-        skip_call |= validate_array(report_data, api_name, count_name, array_name, count, &array, count_required, array_required,
-                                    kVUIDUndefined, kVUIDUndefined);
-    } else {
-        // Verify that no handles in the array are VK_NULL_HANDLE
-        for (uint32_t i = 0; i < count; ++i) {
-            if (array[i] == VK_NULL_HANDLE) {
-                skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                     kVUID_PVError_RequiredParameter, "%s: required parameter %s[%d] specified as VK_NULL_HANDLE",
-                                     api_name, array_name.get_name().c_str(), i);
-            }
-        }
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate string array count and content.
- *
- * Verify that required count and array parameters are not 0 or NULL.  If the
- * count parameter is not optional, verify that it is not 0.  If the array
- * parameter is NULL, and it is not optional, verify that count is 0.  If the
- * array parameter is not NULL, verify that none of the strings are NULL.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param countName Name of count parameter.
- * @param arrayName Name of array parameter.
- * @param count Number of strings in the array.
- * @param array Array of strings to validate.
- * @param countRequired The 'count' parameter may not be 0 when true.
- * @param arrayRequired The 'array' parameter may not be NULL when true.
- * @return Boolean value indicating that the call should be skipped.
- */
-static bool validate_string_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
-                                  const ParameterName &arrayName, uint32_t count, const char *const *array, bool countRequired,
-                                  bool arrayRequired, const std::string &count_required_vuid,
-                                  const std::string &array_required_vuid) {
-    bool skip_call = false;
-
-    if ((count == 0) || (array == NULL)) {
-        skip_call |= validate_array(report_data, apiName, countName, arrayName, count, &array, countRequired, arrayRequired,
-                                    count_required_vuid, array_required_vuid);
-    } else {
-        // Verify that strings in the array are not NULL
-        for (uint32_t i = 0; i < count; ++i) {
-            if (array[i] == NULL) {
-                skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                     kVUID_PVError_RequiredParameter, "%s: required parameter %s[%d] specified as NULL", apiName,
-                                     arrayName.get_name().c_str(), i);
-            }
-        }
-    }
-
-    return skip_call;
-}
-
-// Forward declaration for pNext validation
-bool ValidatePnextStructContents(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name,
-                                 const GenericHeader *header);
-
-/**
- * Validate a structure's pNext member.
- *
- * Verify that the specified pNext value points to the head of a list of
- * allowed extension structures.  If no extension structures are allowed,
- * verify that pNext is null.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param api_name Name of API call being validated.
- * @param parameter_name Name of parameter being validated.
- * @param allowed_struct_names Names of allowed structs.
- * @param next Pointer to validate.
- * @param allowed_type_count Total number of allowed structure types.
- * @param allowed_types Array of structure types allowed for pNext.
- * @param header_version Version of header defining the pNext validation rules.
- * @return Boolean value indicating that the call should be skipped.
- */
-static bool validate_struct_pnext(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name,
-                                  const char *allowed_struct_names, const void *next, size_t allowed_type_count,
-                                  const VkStructureType *allowed_types, uint32_t header_version, const std::string &vuid) {
-    bool skip_call = false;
-    std::unordered_set<const void *> cycle_check;
-    std::unordered_set<VkStructureType, std::hash<int>> unique_stype_check;
-
-    const char disclaimer[] =
-        "This warning is based on the Valid Usage documentation for version %d of the Vulkan header.  It is possible that you are "
-        "using a struct from a private extension or an extension that was added to a later version of the Vulkan header, in which "
-        "case your use of %s is perfectly valid but is not guaranteed to work correctly with validation enabled";
-
-    // TODO: The valid pNext structure types are not recursive. Each structure has its own list of valid sTypes for pNext.
-    // Codegen a map of vectors containing the allowable pNext types for each struct and use that here -- also simplifies parms.
-    if (next != NULL) {
-        if (allowed_type_count == 0) {
-            std::string message = "%s: value of %s must be NULL. ";
-            message += disclaimer;
-            skip_call |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
-                                 message.c_str(), api_name, parameter_name.get_name().c_str(), header_version,
-                                 parameter_name.get_name().c_str());
-        } else {
-            const VkStructureType *start = allowed_types;
-            const VkStructureType *end = allowed_types + allowed_type_count;
-            const GenericHeader *current = reinterpret_cast<const GenericHeader *>(next);
-
-            cycle_check.insert(next);
-
-            while (current != NULL) {
-                if (((strncmp(api_name, "vkCreateInstance", strlen(api_name)) != 0) ||
-                     (current->sType != VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO)) &&
-                    ((strncmp(api_name, "vkCreateDevice", strlen(api_name)) != 0) ||
-                     (current->sType != VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO))) {
-                    if (cycle_check.find(current->pNext) != cycle_check.end()) {
-                        std::string message = "%s: %s chain contains a cycle -- pNext pointer " PRIx64 " is repeated.";
-                        skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                             kVUID_PVError_InvalidStructPNext, message.c_str(), api_name,
-                                             parameter_name.get_name().c_str(), reinterpret_cast<uint64_t>(next));
-                        break;
-                    } else {
-                        cycle_check.insert(current->pNext);
-                    }
-
-                    std::string type_name = string_VkStructureType(current->sType);
-                    if (unique_stype_check.find(current->sType) != unique_stype_check.end()) {
-                        std::string message = "%s: %s chain contains duplicate structure types: %s appears multiple times.";
-                        skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                             kVUID_PVError_InvalidStructPNext, message.c_str(), api_name,
-                                             parameter_name.get_name().c_str(), type_name.c_str());
-                    } else {
-                        unique_stype_check.insert(current->sType);
-                    }
-
-                    if (std::find(start, end, current->sType) == end) {
-                        if (type_name == UnsupportedStructureTypeString) {
-                            std::string message =
-                                "%s: %s chain includes a structure with unknown VkStructureType (%d); Allowed structures are "
-                                "[%s]. ";
-                            message += disclaimer;
-                            skip_call |=
-                                log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                        vuid, message.c_str(), api_name, parameter_name.get_name().c_str(), current->sType,
-                                        allowed_struct_names, header_version, parameter_name.get_name().c_str());
-                        } else {
-                            std::string message =
-                                "%s: %s chain includes a structure with unexpected VkStructureType %s; Allowed structures are "
-                                "[%s]. ";
-                            message += disclaimer;
-                            skip_call |=
-                                log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                        vuid, message.c_str(), api_name, parameter_name.get_name().c_str(), type_name.c_str(),
-                                        allowed_struct_names, header_version, parameter_name.get_name().c_str());
-                        }
-                    }
-                    // LUGMAL Insert pNext struct check here:
-                    skip_call |= ValidatePnextStructContents(report_data, api_name, parameter_name, current);
-                }
-                current = reinterpret_cast<const GenericHeader *>(current->pNext);
-            }
-        }
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate a VkBool32 value.
- *
- * Generate a warning if a VkBool32 value is neither VK_TRUE nor VK_FALSE.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param parameterName Name of parameter being validated.
- * @param value Boolean value to validate.
- * @return Boolean value indicating that the call should be skipped.
- */
-static bool validate_bool32(debug_report_data *report_data, const char *apiName, const ParameterName &parameterName,
-                            VkBool32 value) {
-    bool skip_call = false;
-
-    if ((value != VK_TRUE) && (value != VK_FALSE)) {
-        skip_call |= log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                             kVUID_PVError_UnrecognizedValue, "%s: value of %s (%d) is neither VK_TRUE nor VK_FALSE", apiName,
-                             parameterName.get_name().c_str(), value);
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate a Vulkan enumeration value.
- *
- * Generate a warning if an enumeration token value does not fall within the core enumeration
- * begin and end token values, and was not added to the enumeration by an extension.  Extension
- * provided enumerations use the equation specified in Appendix C.10 of the Vulkan specification,
- * with 1,000,000,000 as the base token value.
- *
- * @note This function does not expect to process enumerations defining bitmask flag bits.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param parameterName Name of parameter being validated.
- * @param enumName Name of the enumeration being validated.
- * @param valid_values The list of valid values for the enumeration.
- * @param value Enumeration value to validate.
- * @return Boolean value indicating that the call should be skipped.
- */
-template <typename T>
-bool validate_ranged_enum(debug_report_data *report_data, const char *apiName, const ParameterName &parameterName,
-                          const char *enumName, const std::vector<T> &valid_values, T value, const std::string &vuid) {
-    bool skip = false;
-
-    if (std::find(valid_values.begin(), valid_values.end(), value) == valid_values.end()) {
-        skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
-                        "%s: value of %s (%d) does not fall within the begin..end range of the core %s enumeration tokens and is "
-                        "not an extension added token.",
-                        apiName, parameterName.get_name().c_str(), value, enumName);
-    }
-
-    return skip;
-}
-
-/**
- * Validate an array of Vulkan enumeration value.
- *
- * Process all enumeration token values in the specified array and generate a warning if a value
- * does not fall within the core enumeration begin and end token values, and was not added to
- * the enumeration by an extension.  Extension provided enumerations use the equation specified
- * in Appendix C.10 of the Vulkan specification, with 1,000,000,000 as the base token value.
- *
- * @note This function does not expect to process enumerations defining bitmask flag bits.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param countName Name of count parameter.
- * @param arrayName Name of array parameter.
- * @param enumName Name of the enumeration being validated.
- * @param valid_values The list of valid values for the enumeration.
- * @param count Number of enumeration values in the array.
- * @param array Array of enumeration values to validate.
- * @param countRequired The 'count' parameter may not be 0 when true.
- * @param arrayRequired The 'array' parameter may not be NULL when true.
- * @return Boolean value indicating that the call should be skipped.
- */
-template <typename T>
-static bool validate_ranged_enum_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
-                                       const ParameterName &arrayName, const char *enumName, const std::vector<T> &valid_values,
-                                       uint32_t count, const T *array, bool countRequired, bool arrayRequired) {
-    bool skip_call = false;
-
-    if ((count == 0) || (array == NULL)) {
-        skip_call |= validate_array(report_data, apiName, countName, arrayName, count, &array, countRequired, arrayRequired,
-                                    kVUIDUndefined, kVUIDUndefined);
-    } else {
-        for (uint32_t i = 0; i < count; ++i) {
-            if (std::find(valid_values.begin(), valid_values.end(), array[i]) == valid_values.end()) {
-                skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                     kVUID_PVError_UnrecognizedValue,
-                                     "%s: value of %s[%d] (%d) does not fall within the begin..end range of the core %s "
-                                     "enumeration tokens and is not an extension added token",
-                                     apiName, arrayName.get_name().c_str(), i, array[i], enumName);
-            }
-        }
-    }
-
-    return skip_call;
-}
-
-/**
- * Verify that a reserved VkFlags value is zero.
- *
- * Verify that the specified value is zero, to check VkFlags values that are reserved for
- * future use.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param api_name Name of API call being validated.
- * @param parameter_name Name of parameter being validated.
- * @param value Value to validate.
- * @return Boolean value indicating that the call should be skipped.
- */
-static bool validate_reserved_flags(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name,
-                                    VkFlags value, const std::string &vuid) {
-    bool skip_call = false;
-
-    if (value != 0) {
-        skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
-                             "%s: parameter %s must be 0.", api_name, parameter_name.get_name().c_str());
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate a Vulkan bitmask value.
- *
- * Generate a warning if a value with a VkFlags derived type does not contain valid flag bits
- * for that type.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param api_name Name of API call being validated.
- * @param parameter_name Name of parameter being validated.
- * @param flag_bits_name Name of the VkFlags type being validated.
- * @param all_flags A bit mask combining all valid flag bits for the VkFlags type being validated.
- * @param value VkFlags value to validate.
- * @param flags_required The 'value' parameter may not be 0 when true.
- * @param singleFlag The 'value' parameter may not contain more than one bit from all_flags.
- * @return Boolean value indicating that the call should be skipped.
- */
-static bool validate_flags(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name,
-                           const char *flag_bits_name, VkFlags all_flags, VkFlags value, bool flags_required, bool singleFlag,
-                           const std::string &vuid) {
-    bool skip_call = false;
-
-    if (value == 0) {
-        if (flags_required) {
-            skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0, vuid,
-                                 "%s: value of %s must not be 0.", api_name, parameter_name.get_name().c_str());
-        }
-    } else if ((value & (~all_flags)) != 0) {
-        skip_call |=
-            log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                    kVUID_PVError_UnrecognizedValue, "%s: value of %s contains flag bits that are not recognized members of %s",
-                    api_name, parameter_name.get_name().c_str(), flag_bits_name);
-    } else if (singleFlag && (std::bitset<sizeof(VkFlags) * 8>(value).count() > 1)) {
-        skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                             kVUID_PVError_UnrecognizedValue,
-                             "%s: value of %s contains multiple members of %s when only a single value is allowed", api_name,
-                             parameter_name.get_name().c_str(), flag_bits_name);
-    }
-
-    return skip_call;
-}
-
-/**
- * Validate an array of Vulkan bitmask values.
- *
- * Generate a warning if a value with a VkFlags derived type does not contain valid flag bits
- * for that type.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param api_name Name of API call being validated.
- * @param count_name Name of parameter being validated.
- * @param array_name Name of parameter being validated.
- * @param flag_bits_name Name of the VkFlags type being validated.
- * @param all_flags A bitmask combining all valid flag bits for the VkFlags type being validated.
- * @param count Number of VkFlags values in the array.
- * @param array Array of VkFlags value to validate.
- * @param count_required The 'count' parameter may not be 0 when true.
- * @param array_required The 'array' parameter may not be NULL when true.
- * @return Boolean value indicating that the call should be skipped.
- */
-static bool validate_flags_array(debug_report_data *report_data, const char *api_name, const ParameterName &count_name,
-                                 const ParameterName &array_name, const char *flag_bits_name, VkFlags all_flags, uint32_t count,
-                                 const VkFlags *array, bool count_required, bool array_required) {
-    bool skip_call = false;
-
-    if ((count == 0) || (array == NULL)) {
-        skip_call |= validate_array(report_data, api_name, count_name, array_name, count, &array, count_required, array_required,
-                                    kVUIDUndefined, kVUIDUndefined);
-    } else {
-        // Verify that all VkFlags values in the array
-        for (uint32_t i = 0; i < count; ++i) {
-            if (array[i] == 0) {
-                // Current XML registry logic for validity generation uses the array parameter's optional tag to determine if
-                // elements in the array are allowed be 0
-                if (array_required) {
-                    skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                         kVUID_PVError_RequiredParameter, "%s: value of %s[%d] must not be 0", api_name,
-                                         array_name.get_name().c_str(), i);
-                }
-            } else if ((array[i] & (~all_flags)) != 0) {
-                skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                                     kVUID_PVError_UnrecognizedValue,
-                                     "%s: value of %s[%d] contains flag bits that are not recognized members of %s", api_name,
-                                     array_name.get_name().c_str(), i, flag_bits_name);
-            }
-        }
-    }
-
-    return skip_call;
-}
-
-/**
- * Get VkResult code description.
- *
- * Returns a string describing the specified VkResult code.  The description is based on the language in the Vulkan API
- * specification.
- *
- * @param value VkResult code to process.
- * @return String describing the specified VkResult code.
- */
-static std::string get_result_description(VkResult result) {
-    // clang-format off
-    switch (result) {
-        case VK_SUCCESS:                        return "a command completed successfully";
-        case VK_NOT_READY:                      return "a fence or query has not yet completed";
-        case VK_TIMEOUT:                        return "a wait operation has not completed in the specified time";
-        case VK_EVENT_SET:                      return "an event is signaled";
-        case VK_EVENT_RESET:                    return "an event is unsignalled";
-        case VK_INCOMPLETE:                     return "a return array was too small for the result";
-        case VK_ERROR_OUT_OF_HOST_MEMORY:       return "a host memory allocation has failed";
-        case VK_ERROR_OUT_OF_DEVICE_MEMORY:     return "a device memory allocation has failed";
-        case VK_ERROR_INITIALIZATION_FAILED:    return "initialization of an object has failed";
-        case VK_ERROR_DEVICE_LOST:              return "the logical device has been lost";
-        case VK_ERROR_MEMORY_MAP_FAILED:        return "mapping of a memory object has failed";
-        case VK_ERROR_LAYER_NOT_PRESENT:        return "the specified layer does not exist";
-        case VK_ERROR_EXTENSION_NOT_PRESENT:    return "the specified extension does not exist";
-        case VK_ERROR_FEATURE_NOT_PRESENT:      return "the requested feature is not available on this device";
-        case VK_ERROR_INCOMPATIBLE_DRIVER:      return "a Vulkan driver could not be found";
-        case VK_ERROR_TOO_MANY_OBJECTS:         return "too many objects of the type have already been created";
-        case VK_ERROR_FORMAT_NOT_SUPPORTED:     return "the requested format is not supported on this device";
-        case VK_ERROR_SURFACE_LOST_KHR:         return "a surface is no longer available";
-        case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR: return "the requested window is already connected to another "
-                                                       "VkSurfaceKHR object, or some other non-Vulkan surface object";
-        case VK_SUBOPTIMAL_KHR:                 return "an image became available, and the swapchain no longer "
-                                                       "matches the surface properties exactly, but can still be used to "
-                                                       "present to the surface successfully.";
-        case VK_ERROR_OUT_OF_DATE_KHR:          return "a surface has changed in such a way that it is no "
-                                                       "longer compatible with the swapchain";
-        case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR: return "the display used by a swapchain does not use the same "
-                                                       "presentable image layout, or is incompatible in a way that prevents "
-                                                       "sharing an image";
-        case VK_ERROR_VALIDATION_FAILED_EXT:    return "API validation has detected an invalid use of the API";
-        case VK_ERROR_INVALID_SHADER_NV:        return "one or more shaders failed to compile or link";
-        default:                                return "an error has occurred";
-    };
-    // clang-format on
-}
-
-/**
- * Validate return code.
- *
- * Print a message describing the reason for failure when an error code is returned.
- *
- * @param report_data debug_report_data object for routing validation messages.
- * @param apiName Name of API call being validated.
- * @param ignore vector of VkResult return codes to be ignored
- * @param value VkResult value to validate.
- */
-static void validate_result(debug_report_data *report_data, const char *apiName, std::vector<VkResult> const &ignore,
-                            VkResult result) {
-    if (result < 0 && result != VK_ERROR_VALIDATION_FAILED_EXT) {
-        if (std::find(ignore.begin(), ignore.end(), result) != ignore.end()) {
-            return;
-        }
-        std::string resultName = string_VkResult(result);
-        if (resultName == UnsupportedResultString) {
-            // Unrecognized result code
-            log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                    kVUID_PVError_FailureCode, "%s: returned a result code indicating that an error has occurred", apiName);
-        } else {
-            std::string resultDesc = get_result_description(result);
-            log_msg(report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
-                    kVUID_PVError_FailureCode, "%s: returned %s, indicating that %s", apiName, resultName.c_str(),
-                    resultDesc.c_str());
-        }
-    }
-}
-
-}  // namespace parameter_validation
-
-#endif  // PARAMETER_VALIDATION_UTILS_H
+#ifdef VK_USE_PLATFORM_XCB_KHR
+bool PreCallValidateCreateXcbSurfaceKHR(
+    VkInstance                                  instance,
+    const VkXcbSurfaceCreateInfoKHR*            pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
+#endif
+#ifdef VK_USE_PLATFORM_XCB_KHR
+bool PreCallValidateGetPhysicalDeviceXcbPresentationSupportKHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t                                    queueFamilyIndex,
+    xcb_connection_t*                           connection,
+    xcb_visualid_t                              visual_id);
+#endif
+#ifdef VK_USE_PLATFORM_WAYLAND_KHR
+bool PreCallValidateCreateWaylandSurfaceKHR(
+    VkInstance                                  instance,
+    const VkWaylandSurfaceCreateInfoKHR*        pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
+#endif
+#ifdef VK_USE_PLATFORM_WAYLAND_KHR
+bool PreCallValidateGetPhysicalDeviceWaylandPresentationSupportKHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t                                    queueFamilyIndex,
+    struct wl_display*                          display);
+#endif
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+bool PreCallValidateCreateAndroidSurfaceKHR(
+    VkInstance                                  instance,
+    const VkAndroidSurfaceCreateInfoKHR*        pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
+#endif
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+bool PreCallValidateCreateWin32SurfaceKHR(
+    VkInstance                                  instance,
+    const VkWin32SurfaceCreateInfoKHR*          pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
+#endif
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+bool PreCallValidateGetPhysicalDeviceWin32PresentationSupportKHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t                                    queueFamilyIndex);
+#endif
+bool PreCallValidateGetPhysicalDeviceFeatures2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkPhysicalDeviceFeatures2*                  pFeatures);
+bool PreCallValidateGetPhysicalDeviceProperties2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkPhysicalDeviceProperties2*                pProperties);
+bool PreCallValidateGetPhysicalDeviceFormatProperties2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkFormat                                    format,
+    VkFormatProperties2*                        pFormatProperties);
+bool PreCallValidateGetPhysicalDeviceImageFormatProperties2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceImageFormatInfo2*     pImageFormatInfo,
+    VkImageFormatProperties2*                   pImageFormatProperties);
+bool PreCallValidateGetPhysicalDeviceQueueFamilyProperties2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t*                                   pQueueFamilyPropertyCount,
+    VkQueueFamilyProperties2*                   pQueueFamilyProperties);
+bool PreCallValidateGetPhysicalDeviceMemoryProperties2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkPhysicalDeviceMemoryProperties2*          pMemoryProperties);
+bool PreCallValidateGetPhysicalDeviceSparseImageFormatProperties2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceSparseImageFormatInfo2* pFormatInfo,
+    uint32_t*                                   pPropertyCount,
+    VkSparseImageFormatProperties2*             pProperties);
+bool PreCallValidateGetDeviceGroupPeerMemoryFeaturesKHR(
+    VkDevice                                    device,
+    uint32_t                                    heapIndex,
+    uint32_t                                    localDeviceIndex,
+    uint32_t                                    remoteDeviceIndex,
+    VkPeerMemoryFeatureFlags*                   pPeerMemoryFeatures);
+bool PreCallValidateCmdSetDeviceMaskKHR(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    deviceMask);
+bool PreCallValidateCmdDispatchBaseKHR(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    baseGroupX,
+    uint32_t                                    baseGroupY,
+    uint32_t                                    baseGroupZ,
+    uint32_t                                    groupCountX,
+    uint32_t                                    groupCountY,
+    uint32_t                                    groupCountZ);
+bool PreCallValidateTrimCommandPoolKHR(
+    VkDevice                                    device,
+    VkCommandPool                               commandPool,
+    VkCommandPoolTrimFlags                      flags);
+bool PreCallValidateEnumeratePhysicalDeviceGroupsKHR(
+    VkInstance                                  instance,
+    uint32_t*                                   pPhysicalDeviceGroupCount,
+    VkPhysicalDeviceGroupProperties*            pPhysicalDeviceGroupProperties);
+bool PreCallValidateGetPhysicalDeviceExternalBufferPropertiesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceExternalBufferInfo*   pExternalBufferInfo,
+    VkExternalBufferProperties*                 pExternalBufferProperties);
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+bool PreCallValidateGetMemoryWin32HandleKHR(
+    VkDevice                                    device,
+    const VkMemoryGetWin32HandleInfoKHR*        pGetWin32HandleInfo,
+    HANDLE*                                     pHandle);
+#endif
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+bool PreCallValidateGetMemoryWin32HandlePropertiesKHR(
+    VkDevice                                    device,
+    VkExternalMemoryHandleTypeFlagBits          handleType,
+    HANDLE                                      handle,
+    VkMemoryWin32HandlePropertiesKHR*           pMemoryWin32HandleProperties);
+#endif
+bool PreCallValidateGetMemoryFdKHR(
+    VkDevice                                    device,
+    const VkMemoryGetFdInfoKHR*                 pGetFdInfo,
+    int*                                        pFd);
+bool PreCallValidateGetMemoryFdPropertiesKHR(
+    VkDevice                                    device,
+    VkExternalMemoryHandleTypeFlagBits          handleType,
+    int                                         fd,
+    VkMemoryFdPropertiesKHR*                    pMemoryFdProperties);
+bool PreCallValidateGetPhysicalDeviceExternalSemaphorePropertiesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceExternalSemaphoreInfo* pExternalSemaphoreInfo,
+    VkExternalSemaphoreProperties*              pExternalSemaphoreProperties);
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+bool PreCallValidateImportSemaphoreWin32HandleKHR(
+    VkDevice                                    device,
+    const VkImportSemaphoreWin32HandleInfoKHR*  pImportSemaphoreWin32HandleInfo);
+#endif
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+bool PreCallValidateGetSemaphoreWin32HandleKHR(
+    VkDevice                                    device,
+    const VkSemaphoreGetWin32HandleInfoKHR*     pGetWin32HandleInfo,
+    HANDLE*                                     pHandle);
+#endif
+bool PreCallValidateImportSemaphoreFdKHR(
+    VkDevice                                    device,
+    const VkImportSemaphoreFdInfoKHR*           pImportSemaphoreFdInfo);
+bool PreCallValidateGetSemaphoreFdKHR(
+    VkDevice                                    device,
+    const VkSemaphoreGetFdInfoKHR*              pGetFdInfo,
+    int*                                        pFd);
+bool PreCallValidateCmdPushDescriptorSetKHR(
+    VkCommandBuffer                             commandBuffer,
+    VkPipelineBindPoint                         pipelineBindPoint,
+    VkPipelineLayout                            layout,
+    uint32_t                                    set,
+    uint32_t                                    descriptorWriteCount,
+    const VkWriteDescriptorSet*                 pDescriptorWrites);
+bool PreCallValidateCmdPushDescriptorSetWithTemplateKHR(
+    VkCommandBuffer                             commandBuffer,
+    VkDescriptorUpdateTemplate                  descriptorUpdateTemplate,
+    VkPipelineLayout                            layout,
+    uint32_t                                    set,
+    const void*                                 pData);
+bool PreCallValidateCreateDescriptorUpdateTemplateKHR(
+    VkDevice                                    device,
+    const VkDescriptorUpdateTemplateCreateInfo* pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDescriptorUpdateTemplate*                 pDescriptorUpdateTemplate);
+bool PreCallValidateDestroyDescriptorUpdateTemplateKHR(
+    VkDevice                                    device,
+    VkDescriptorUpdateTemplate                  descriptorUpdateTemplate,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateUpdateDescriptorSetWithTemplateKHR(
+    VkDevice                                    device,
+    VkDescriptorSet                             descriptorSet,
+    VkDescriptorUpdateTemplate                  descriptorUpdateTemplate,
+    const void*                                 pData);
+bool PreCallValidateCreateRenderPass2KHR(
+    VkDevice                                    device,
+    const VkRenderPassCreateInfo2KHR*           pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkRenderPass*                               pRenderPass);
+bool PreCallValidateCmdBeginRenderPass2KHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkRenderPassBeginInfo*                pRenderPassBegin,
+    const VkSubpassBeginInfoKHR*                pSubpassBeginInfo);
+bool PreCallValidateCmdNextSubpass2KHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkSubpassBeginInfoKHR*                pSubpassBeginInfo,
+    const VkSubpassEndInfoKHR*                  pSubpassEndInfo);
+bool PreCallValidateCmdEndRenderPass2KHR(
+    VkCommandBuffer                             commandBuffer,
+    const VkSubpassEndInfoKHR*                  pSubpassEndInfo);
+bool PreCallValidateGetSwapchainStatusKHR(
+    VkDevice                                    device,
+    VkSwapchainKHR                              swapchain);
+bool PreCallValidateGetPhysicalDeviceExternalFencePropertiesKHR(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceExternalFenceInfo*    pExternalFenceInfo,
+    VkExternalFenceProperties*                  pExternalFenceProperties);
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+bool PreCallValidateImportFenceWin32HandleKHR(
+    VkDevice                                    device,
+    const VkImportFenceWin32HandleInfoKHR*      pImportFenceWin32HandleInfo);
+#endif
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+bool PreCallValidateGetFenceWin32HandleKHR(
+    VkDevice                                    device,
+    const VkFenceGetWin32HandleInfoKHR*         pGetWin32HandleInfo,
+    HANDLE*                                     pHandle);
+#endif
+bool PreCallValidateImportFenceFdKHR(
+    VkDevice                                    device,
+    const VkImportFenceFdInfoKHR*               pImportFenceFdInfo);
+bool PreCallValidateGetFenceFdKHR(
+    VkDevice                                    device,
+    const VkFenceGetFdInfoKHR*                  pGetFdInfo,
+    int*                                        pFd);
+bool PreCallValidateGetPhysicalDeviceSurfaceCapabilities2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceSurfaceInfo2KHR*      pSurfaceInfo,
+    VkSurfaceCapabilities2KHR*                  pSurfaceCapabilities);
+bool PreCallValidateGetPhysicalDeviceSurfaceFormats2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    const VkPhysicalDeviceSurfaceInfo2KHR*      pSurfaceInfo,
+    uint32_t*                                   pSurfaceFormatCount,
+    VkSurfaceFormat2KHR*                        pSurfaceFormats);
+bool PreCallValidateGetPhysicalDeviceDisplayProperties2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t*                                   pPropertyCount,
+    VkDisplayProperties2KHR*                    pProperties);
+bool PreCallValidateGetPhysicalDeviceDisplayPlaneProperties2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t*                                   pPropertyCount,
+    VkDisplayPlaneProperties2KHR*               pProperties);
+bool PreCallValidateGetDisplayModeProperties2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    VkDisplayKHR                                display,
+    uint32_t*                                   pPropertyCount,
+    VkDisplayModeProperties2KHR*                pProperties);
+bool PreCallValidateGetDisplayPlaneCapabilities2KHR(
+    VkPhysicalDevice                            physicalDevice,
+    const VkDisplayPlaneInfo2KHR*               pDisplayPlaneInfo,
+    VkDisplayPlaneCapabilities2KHR*             pCapabilities);
+bool PreCallValidateGetImageMemoryRequirements2KHR(
+    VkDevice                                    device,
+    const VkImageMemoryRequirementsInfo2*       pInfo,
+    VkMemoryRequirements2*                      pMemoryRequirements);
+bool PreCallValidateGetBufferMemoryRequirements2KHR(
+    VkDevice                                    device,
+    const VkBufferMemoryRequirementsInfo2*      pInfo,
+    VkMemoryRequirements2*                      pMemoryRequirements);
+bool PreCallValidateGetImageSparseMemoryRequirements2KHR(
+    VkDevice                                    device,
+    const VkImageSparseMemoryRequirementsInfo2* pInfo,
+    uint32_t*                                   pSparseMemoryRequirementCount,
+    VkSparseImageMemoryRequirements2*           pSparseMemoryRequirements);
+bool PreCallValidateCreateSamplerYcbcrConversionKHR(
+    VkDevice                                    device,
+    const VkSamplerYcbcrConversionCreateInfo*   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSamplerYcbcrConversion*                   pYcbcrConversion);
+bool PreCallValidateDestroySamplerYcbcrConversionKHR(
+    VkDevice                                    device,
+    VkSamplerYcbcrConversion                    ycbcrConversion,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateBindBufferMemory2KHR(
+    VkDevice                                    device,
+    uint32_t                                    bindInfoCount,
+    const VkBindBufferMemoryInfo*               pBindInfos);
+bool PreCallValidateBindImageMemory2KHR(
+    VkDevice                                    device,
+    uint32_t                                    bindInfoCount,
+    const VkBindImageMemoryInfo*                pBindInfos);
+bool PreCallValidateGetDescriptorSetLayoutSupportKHR(
+    VkDevice                                    device,
+    const VkDescriptorSetLayoutCreateInfo*      pCreateInfo,
+    VkDescriptorSetLayoutSupport*               pSupport);
+bool PreCallValidateCmdDrawIndirectCountKHR(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    buffer,
+    VkDeviceSize                                offset,
+    VkBuffer                                    countBuffer,
+    VkDeviceSize                                countBufferOffset,
+    uint32_t                                    maxDrawCount,
+    uint32_t                                    stride);
+bool PreCallValidateCmdDrawIndexedIndirectCountKHR(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    buffer,
+    VkDeviceSize                                offset,
+    VkBuffer                                    countBuffer,
+    VkDeviceSize                                countBufferOffset,
+    uint32_t                                    maxDrawCount,
+    uint32_t                                    stride);
+bool PreCallValidateCreateDebugReportCallbackEXT(
+    VkInstance                                  instance,
+    const VkDebugReportCallbackCreateInfoEXT*   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDebugReportCallbackEXT*                   pCallback);
+bool PreCallValidateDestroyDebugReportCallbackEXT(
+    VkInstance                                  instance,
+    VkDebugReportCallbackEXT                    callback,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateDebugReportMessageEXT(
+    VkInstance                                  instance,
+    VkDebugReportFlagsEXT                       flags,
+    VkDebugReportObjectTypeEXT                  objectType,
+    uint64_t                                    object,
+    size_t                                      location,
+    int32_t                                     messageCode,
+    const char*                                 pLayerPrefix,
+    const char*                                 pMessage);
+bool PreCallValidateDebugMarkerSetObjectTagEXT(
+    VkDevice                                    device,
+    const VkDebugMarkerObjectTagInfoEXT*        pTagInfo);
+bool PreCallValidateDebugMarkerSetObjectNameEXT(
+    VkDevice                                    device,
+    const VkDebugMarkerObjectNameInfoEXT*       pNameInfo);
+bool PreCallValidateCmdDebugMarkerBeginEXT(
+    VkCommandBuffer                             commandBuffer,
+    const VkDebugMarkerMarkerInfoEXT*           pMarkerInfo);
+bool PreCallValidateCmdDebugMarkerEndEXT(
+    VkCommandBuffer                             commandBuffer);
+bool PreCallValidateCmdDebugMarkerInsertEXT(
+    VkCommandBuffer                             commandBuffer,
+    const VkDebugMarkerMarkerInfoEXT*           pMarkerInfo);
+bool PreCallValidateCmdBindTransformFeedbackBuffersEXT(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstBinding,
+    uint32_t                                    bindingCount,
+    const VkBuffer*                             pBuffers,
+    const VkDeviceSize*                         pOffsets,
+    const VkDeviceSize*                         pSizes);
+bool PreCallValidateCmdBeginTransformFeedbackEXT(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstCounterBuffer,
+    uint32_t                                    counterBufferCount,
+    const VkBuffer*                             pCounterBuffers,
+    const VkDeviceSize*                         pCounterBufferOffsets);
+bool PreCallValidateCmdEndTransformFeedbackEXT(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstCounterBuffer,
+    uint32_t                                    counterBufferCount,
+    const VkBuffer*                             pCounterBuffers,
+    const VkDeviceSize*                         pCounterBufferOffsets);
+bool PreCallValidateCmdBeginQueryIndexedEXT(
+    VkCommandBuffer                             commandBuffer,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    query,
+    VkQueryControlFlags                         flags,
+    uint32_t                                    index);
+bool PreCallValidateCmdEndQueryIndexedEXT(
+    VkCommandBuffer                             commandBuffer,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    query,
+    uint32_t                                    index);
+bool PreCallValidateCmdDrawIndirectByteCountEXT(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    instanceCount,
+    uint32_t                                    firstInstance,
+    VkBuffer                                    counterBuffer,
+    VkDeviceSize                                counterBufferOffset,
+    uint32_t                                    counterOffset,
+    uint32_t                                    vertexStride);
+bool PreCallValidateCmdDrawIndirectCountAMD(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    buffer,
+    VkDeviceSize                                offset,
+    VkBuffer                                    countBuffer,
+    VkDeviceSize                                countBufferOffset,
+    uint32_t                                    maxDrawCount,
+    uint32_t                                    stride);
+bool PreCallValidateCmdDrawIndexedIndirectCountAMD(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    buffer,
+    VkDeviceSize                                offset,
+    VkBuffer                                    countBuffer,
+    VkDeviceSize                                countBufferOffset,
+    uint32_t                                    maxDrawCount,
+    uint32_t                                    stride);
+bool PreCallValidateGetShaderInfoAMD(
+    VkDevice                                    device,
+    VkPipeline                                  pipeline,
+    VkShaderStageFlagBits                       shaderStage,
+    VkShaderInfoTypeAMD                         infoType,
+    size_t*                                     pInfoSize,
+    void*                                       pInfo);
+bool PreCallValidateGetPhysicalDeviceExternalImageFormatPropertiesNV(
+    VkPhysicalDevice                            physicalDevice,
+    VkFormat                                    format,
+    VkImageType                                 type,
+    VkImageTiling                               tiling,
+    VkImageUsageFlags                           usage,
+    VkImageCreateFlags                          flags,
+    VkExternalMemoryHandleTypeFlagsNV           externalHandleType,
+    VkExternalImageFormatPropertiesNV*          pExternalImageFormatProperties);
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+bool PreCallValidateGetMemoryWin32HandleNV(
+    VkDevice                                    device,
+    VkDeviceMemory                              memory,
+    VkExternalMemoryHandleTypeFlagsNV           handleType,
+    HANDLE*                                     pHandle);
+#endif
+#ifdef VK_USE_PLATFORM_VI_NN
+bool PreCallValidateCreateViSurfaceNN(
+    VkInstance                                  instance,
+    const VkViSurfaceCreateInfoNN*              pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
+#endif
+bool PreCallValidateCmdBeginConditionalRenderingEXT(
+    VkCommandBuffer                             commandBuffer,
+    const VkConditionalRenderingBeginInfoEXT*   pConditionalRenderingBegin);
+bool PreCallValidateCmdEndConditionalRenderingEXT(
+    VkCommandBuffer                             commandBuffer);
+bool PreCallValidateCmdProcessCommandsNVX(
+    VkCommandBuffer                             commandBuffer,
+    const VkCmdProcessCommandsInfoNVX*          pProcessCommandsInfo);
+bool PreCallValidateCmdReserveSpaceForCommandsNVX(
+    VkCommandBuffer                             commandBuffer,
+    const VkCmdReserveSpaceForCommandsInfoNVX*  pReserveSpaceInfo);
+bool PreCallValidateCreateIndirectCommandsLayoutNVX(
+    VkDevice                                    device,
+    const VkIndirectCommandsLayoutCreateInfoNVX* pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkIndirectCommandsLayoutNVX*                pIndirectCommandsLayout);
+bool PreCallValidateDestroyIndirectCommandsLayoutNVX(
+    VkDevice                                    device,
+    VkIndirectCommandsLayoutNVX                 indirectCommandsLayout,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateCreateObjectTableNVX(
+    VkDevice                                    device,
+    const VkObjectTableCreateInfoNVX*           pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkObjectTableNVX*                           pObjectTable);
+bool PreCallValidateDestroyObjectTableNVX(
+    VkDevice                                    device,
+    VkObjectTableNVX                            objectTable,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateRegisterObjectsNVX(
+    VkDevice                                    device,
+    VkObjectTableNVX                            objectTable,
+    uint32_t                                    objectCount,
+    const VkObjectTableEntryNVX* const*         ppObjectTableEntries,
+    const uint32_t*                             pObjectIndices);
+bool PreCallValidateUnregisterObjectsNVX(
+    VkDevice                                    device,
+    VkObjectTableNVX                            objectTable,
+    uint32_t                                    objectCount,
+    const VkObjectEntryTypeNVX*                 pObjectEntryTypes,
+    const uint32_t*                             pObjectIndices);
+bool PreCallValidateGetPhysicalDeviceGeneratedCommandsPropertiesNVX(
+    VkPhysicalDevice                            physicalDevice,
+    VkDeviceGeneratedCommandsFeaturesNVX*       pFeatures,
+    VkDeviceGeneratedCommandsLimitsNVX*         pLimits);
+bool PreCallValidateCmdSetViewportWScalingNV(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstViewport,
+    uint32_t                                    viewportCount,
+    const VkViewportWScalingNV*                 pViewportWScalings);
+bool PreCallValidateReleaseDisplayEXT(
+    VkPhysicalDevice                            physicalDevice,
+    VkDisplayKHR                                display);
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+bool PreCallValidateAcquireXlibDisplayEXT(
+    VkPhysicalDevice                            physicalDevice,
+    Display*                                    dpy,
+    VkDisplayKHR                                display);
+#endif
+#ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
+bool PreCallValidateGetRandROutputDisplayEXT(
+    VkPhysicalDevice                            physicalDevice,
+    Display*                                    dpy,
+    RROutput                                    rrOutput,
+    VkDisplayKHR*                               pDisplay);
+#endif
+bool PreCallValidateGetPhysicalDeviceSurfaceCapabilities2EXT(
+    VkPhysicalDevice                            physicalDevice,
+    VkSurfaceKHR                                surface,
+    VkSurfaceCapabilities2EXT*                  pSurfaceCapabilities);
+bool PreCallValidateDisplayPowerControlEXT(
+    VkDevice                                    device,
+    VkDisplayKHR                                display,
+    const VkDisplayPowerInfoEXT*                pDisplayPowerInfo);
+bool PreCallValidateRegisterDeviceEventEXT(
+    VkDevice                                    device,
+    const VkDeviceEventInfoEXT*                 pDeviceEventInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkFence*                                    pFence);
+bool PreCallValidateRegisterDisplayEventEXT(
+    VkDevice                                    device,
+    VkDisplayKHR                                display,
+    const VkDisplayEventInfoEXT*                pDisplayEventInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkFence*                                    pFence);
+bool PreCallValidateGetSwapchainCounterEXT(
+    VkDevice                                    device,
+    VkSwapchainKHR                              swapchain,
+    VkSurfaceCounterFlagBitsEXT                 counter,
+    uint64_t*                                   pCounterValue);
+bool PreCallValidateGetRefreshCycleDurationGOOGLE(
+    VkDevice                                    device,
+    VkSwapchainKHR                              swapchain,
+    VkRefreshCycleDurationGOOGLE*               pDisplayTimingProperties);
+bool PreCallValidateGetPastPresentationTimingGOOGLE(
+    VkDevice                                    device,
+    VkSwapchainKHR                              swapchain,
+    uint32_t*                                   pPresentationTimingCount,
+    VkPastPresentationTimingGOOGLE*             pPresentationTimings);
+bool PreCallValidateCmdSetDiscardRectangleEXT(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstDiscardRectangle,
+    uint32_t                                    discardRectangleCount,
+    const VkRect2D*                             pDiscardRectangles);
+bool PreCallValidateSetHdrMetadataEXT(
+    VkDevice                                    device,
+    uint32_t                                    swapchainCount,
+    const VkSwapchainKHR*                       pSwapchains,
+    const VkHdrMetadataEXT*                     pMetadata);
+#ifdef VK_USE_PLATFORM_IOS_MVK
+bool PreCallValidateCreateIOSSurfaceMVK(
+    VkInstance                                  instance,
+    const VkIOSSurfaceCreateInfoMVK*            pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
+#endif
+#ifdef VK_USE_PLATFORM_MACOS_MVK
+bool PreCallValidateCreateMacOSSurfaceMVK(
+    VkInstance                                  instance,
+    const VkMacOSSurfaceCreateInfoMVK*          pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
+#endif
+bool PreCallValidateSetDebugUtilsObjectNameEXT(
+    VkDevice                                    device,
+    const VkDebugUtilsObjectNameInfoEXT*        pNameInfo);
+bool PreCallValidateSetDebugUtilsObjectTagEXT(
+    VkDevice                                    device,
+    const VkDebugUtilsObjectTagInfoEXT*         pTagInfo);
+bool PreCallValidateQueueBeginDebugUtilsLabelEXT(
+    VkQueue                                     queue,
+    const VkDebugUtilsLabelEXT*                 pLabelInfo);
+bool PreCallValidateQueueEndDebugUtilsLabelEXT(
+    VkQueue                                     queue);
+bool PreCallValidateQueueInsertDebugUtilsLabelEXT(
+    VkQueue                                     queue,
+    const VkDebugUtilsLabelEXT*                 pLabelInfo);
+bool PreCallValidateCmdBeginDebugUtilsLabelEXT(
+    VkCommandBuffer                             commandBuffer,
+    const VkDebugUtilsLabelEXT*                 pLabelInfo);
+bool PreCallValidateCmdEndDebugUtilsLabelEXT(
+    VkCommandBuffer                             commandBuffer);
+bool PreCallValidateCmdInsertDebugUtilsLabelEXT(
+    VkCommandBuffer                             commandBuffer,
+    const VkDebugUtilsLabelEXT*                 pLabelInfo);
+bool PreCallValidateCreateDebugUtilsMessengerEXT(
+    VkInstance                                  instance,
+    const VkDebugUtilsMessengerCreateInfoEXT*   pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkDebugUtilsMessengerEXT*                   pMessenger);
+bool PreCallValidateDestroyDebugUtilsMessengerEXT(
+    VkInstance                                  instance,
+    VkDebugUtilsMessengerEXT                    messenger,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateSubmitDebugUtilsMessageEXT(
+    VkInstance                                  instance,
+    VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT             messageTypes,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData);
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+bool PreCallValidateGetAndroidHardwareBufferPropertiesANDROID(
+    VkDevice                                    device,
+    const struct AHardwareBuffer*               buffer,
+    VkAndroidHardwareBufferPropertiesANDROID*   pProperties);
+#endif
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+bool PreCallValidateGetMemoryAndroidHardwareBufferANDROID(
+    VkDevice                                    device,
+    const VkMemoryGetAndroidHardwareBufferInfoANDROID* pInfo,
+    struct AHardwareBuffer**                    pBuffer);
+#endif
+bool PreCallValidateCmdSetSampleLocationsEXT(
+    VkCommandBuffer                             commandBuffer,
+    const VkSampleLocationsInfoEXT*             pSampleLocationsInfo);
+bool PreCallValidateGetPhysicalDeviceMultisamplePropertiesEXT(
+    VkPhysicalDevice                            physicalDevice,
+    VkSampleCountFlagBits                       samples,
+    VkMultisamplePropertiesEXT*                 pMultisampleProperties);
+bool PreCallValidateGetImageDrmFormatModifierPropertiesEXT(
+    VkDevice                                    device,
+    VkImage                                     image,
+    VkImageDrmFormatModifierPropertiesEXT*      pProperties);
+bool PreCallValidateCreateValidationCacheEXT(
+    VkDevice                                    device,
+    const VkValidationCacheCreateInfoEXT*       pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkValidationCacheEXT*                       pValidationCache);
+bool PreCallValidateDestroyValidationCacheEXT(
+    VkDevice                                    device,
+    VkValidationCacheEXT                        validationCache,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateMergeValidationCachesEXT(
+    VkDevice                                    device,
+    VkValidationCacheEXT                        dstCache,
+    uint32_t                                    srcCacheCount,
+    const VkValidationCacheEXT*                 pSrcCaches);
+bool PreCallValidateGetValidationCacheDataEXT(
+    VkDevice                                    device,
+    VkValidationCacheEXT                        validationCache,
+    size_t*                                     pDataSize,
+    void*                                       pData);
+bool PreCallValidateCmdBindShadingRateImageNV(
+    VkCommandBuffer                             commandBuffer,
+    VkImageView                                 imageView,
+    VkImageLayout                               imageLayout);
+bool PreCallValidateCmdSetViewportShadingRatePaletteNV(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstViewport,
+    uint32_t                                    viewportCount,
+    const VkShadingRatePaletteNV*               pShadingRatePalettes);
+bool PreCallValidateCmdSetCoarseSampleOrderNV(
+    VkCommandBuffer                             commandBuffer,
+    VkCoarseSampleOrderTypeNV                   sampleOrderType,
+    uint32_t                                    customSampleOrderCount,
+    const VkCoarseSampleOrderCustomNV*          pCustomSampleOrders);
+bool PreCallValidateCreateAccelerationStructureNV(
+    VkDevice                                    device,
+    const VkAccelerationStructureCreateInfoNV*  pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkAccelerationStructureNV*                  pAccelerationStructure);
+bool PreCallValidateDestroyAccelerationStructureNV(
+    VkDevice                                    device,
+    VkAccelerationStructureNV                   accelerationStructure,
+    const VkAllocationCallbacks*                pAllocator);
+bool PreCallValidateGetAccelerationStructureMemoryRequirementsNV(
+    VkDevice                                    device,
+    const VkAccelerationStructureMemoryRequirementsInfoNV* pInfo,
+    VkMemoryRequirements2KHR*                   pMemoryRequirements);
+bool PreCallValidateBindAccelerationStructureMemoryNV(
+    VkDevice                                    device,
+    uint32_t                                    bindInfoCount,
+    const VkBindAccelerationStructureMemoryInfoNV* pBindInfos);
+bool PreCallValidateCmdBuildAccelerationStructureNV(
+    VkCommandBuffer                             commandBuffer,
+    const VkAccelerationStructureInfoNV*        pInfo,
+    VkBuffer                                    instanceData,
+    VkDeviceSize                                instanceOffset,
+    VkBool32                                    update,
+    VkAccelerationStructureNV                   dst,
+    VkAccelerationStructureNV                   src,
+    VkBuffer                                    scratch,
+    VkDeviceSize                                scratchOffset);
+bool PreCallValidateCmdCopyAccelerationStructureNV(
+    VkCommandBuffer                             commandBuffer,
+    VkAccelerationStructureNV                   dst,
+    VkAccelerationStructureNV                   src,
+    VkCopyAccelerationStructureModeNV           mode);
+bool PreCallValidateCmdTraceRaysNV(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    raygenShaderBindingTableBuffer,
+    VkDeviceSize                                raygenShaderBindingOffset,
+    VkBuffer                                    missShaderBindingTableBuffer,
+    VkDeviceSize                                missShaderBindingOffset,
+    VkDeviceSize                                missShaderBindingStride,
+    VkBuffer                                    hitShaderBindingTableBuffer,
+    VkDeviceSize                                hitShaderBindingOffset,
+    VkDeviceSize                                hitShaderBindingStride,
+    VkBuffer                                    callableShaderBindingTableBuffer,
+    VkDeviceSize                                callableShaderBindingOffset,
+    VkDeviceSize                                callableShaderBindingStride,
+    uint32_t                                    width,
+    uint32_t                                    height,
+    uint32_t                                    depth);
+bool PreCallValidateCreateRayTracingPipelinesNV(
+    VkDevice                                    device,
+    VkPipelineCache                             pipelineCache,
+    uint32_t                                    createInfoCount,
+    const VkRayTracingPipelineCreateInfoNV*     pCreateInfos,
+    const VkAllocationCallbacks*                pAllocator,
+    VkPipeline*                                 pPipelines);
+bool PreCallValidateGetRayTracingShaderGroupHandlesNV(
+    VkDevice                                    device,
+    VkPipeline                                  pipeline,
+    uint32_t                                    firstGroup,
+    uint32_t                                    groupCount,
+    size_t                                      dataSize,
+    void*                                       pData);
+bool PreCallValidateGetAccelerationStructureHandleNV(
+    VkDevice                                    device,
+    VkAccelerationStructureNV                   accelerationStructure,
+    size_t                                      dataSize,
+    void*                                       pData);
+bool PreCallValidateCmdWriteAccelerationStructuresPropertiesNV(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    accelerationStructureCount,
+    const VkAccelerationStructureNV*            pAccelerationStructures,
+    VkQueryType                                 queryType,
+    VkQueryPool                                 queryPool,
+    uint32_t                                    firstQuery);
+bool PreCallValidateCompileDeferredNV(
+    VkDevice                                    device,
+    VkPipeline                                  pipeline,
+    uint32_t                                    shader);
+bool PreCallValidateGetMemoryHostPointerPropertiesEXT(
+    VkDevice                                    device,
+    VkExternalMemoryHandleTypeFlagBits          handleType,
+    const void*                                 pHostPointer,
+    VkMemoryHostPointerPropertiesEXT*           pMemoryHostPointerProperties);
+bool PreCallValidateCmdWriteBufferMarkerAMD(
+    VkCommandBuffer                             commandBuffer,
+    VkPipelineStageFlagBits                     pipelineStage,
+    VkBuffer                                    dstBuffer,
+    VkDeviceSize                                dstOffset,
+    uint32_t                                    marker);
+bool PreCallValidateGetPhysicalDeviceCalibrateableTimeDomainsEXT(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t*                                   pTimeDomainCount,
+    VkTimeDomainEXT*                            pTimeDomains);
+bool PreCallValidateGetCalibratedTimestampsEXT(
+    VkDevice                                    device,
+    uint32_t                                    timestampCount,
+    const VkCalibratedTimestampInfoEXT*         pTimestampInfos,
+    uint64_t*                                   pTimestamps,
+    uint64_t*                                   pMaxDeviation);
+bool PreCallValidateCmdDrawMeshTasksNV(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    taskCount,
+    uint32_t                                    firstTask);
+bool PreCallValidateCmdDrawMeshTasksIndirectNV(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    buffer,
+    VkDeviceSize                                offset,
+    uint32_t                                    drawCount,
+    uint32_t                                    stride);
+bool PreCallValidateCmdDrawMeshTasksIndirectCountNV(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    buffer,
+    VkDeviceSize                                offset,
+    VkBuffer                                    countBuffer,
+    VkDeviceSize                                countBufferOffset,
+    uint32_t                                    maxDrawCount,
+    uint32_t                                    stride);
+bool PreCallValidateCmdSetExclusiveScissorNV(
+    VkCommandBuffer                             commandBuffer,
+    uint32_t                                    firstExclusiveScissor,
+    uint32_t                                    exclusiveScissorCount,
+    const VkRect2D*                             pExclusiveScissors);
+bool PreCallValidateCmdSetCheckpointNV(
+    VkCommandBuffer                             commandBuffer,
+    const void*                                 pCheckpointMarker);
+bool PreCallValidateGetQueueCheckpointDataNV(
+    VkQueue                                     queue,
+    uint32_t*                                   pCheckpointDataCount,
+    VkCheckpointDataNV*                         pCheckpointData);
+#ifdef VK_USE_PLATFORM_FUCHSIA
+bool PreCallValidateCreateImagePipeSurfaceFUCHSIA(
+    VkInstance                                  instance,
+    const VkImagePipeSurfaceCreateInfoFUCHSIA*  pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkSurfaceKHR*                               pSurface);
+#endif
