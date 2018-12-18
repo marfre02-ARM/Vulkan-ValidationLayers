@@ -123,7 +123,6 @@ class ParameterValidationOutputGenerator(OutputGenerator):
                  diagFile = sys.stdout):
         OutputGenerator.__init__(self, errFile, warnFile, diagFile)
         self.INDENT_SPACES = 4
-        self.intercepts = []
         self.declarations = []
         # Commands to ignore
         self.blacklist = [
@@ -363,15 +362,8 @@ class ParameterValidationOutputGenerator(OutputGenerator):
         write(commands_text, file=self.outFile)
         self.newline()
         # Output declarations and record intercepted procedures
-        write('// Declarations', file=self.outFile)
+        write('// Need to move these to header file! ', file=self.outFile)
         write('\n'.join(self.declarations), file=self.outFile)
-        write('// Map of all APIs to be intercepted by this layer', file=self.outFile)
-        write('const std::unordered_map<std::string, void*> name_to_funcptr_map = {', file=self.outFile)
-        write('\n'.join(self.intercepts), file=self.outFile)
-        write('};\n', file=self.outFile)
-        self.newline()
-        # Namespace
-        write('} // namespace parameter_validation', file = self.outFile)
         # Finish processing in superclass
         OutputGenerator.endFile(self)
     #
@@ -594,18 +586,13 @@ class ParameterValidationOutputGenerator(OutputGenerator):
         if name not in self.blacklist:
             if (self.featureExtraProtect is not None):
                 self.declarations += [ '#ifdef %s' % self.featureExtraProtect ]
-                self.intercepts += [ '#ifdef %s' % self.featureExtraProtect ]
-                if (name not in self.validate_only):
-                    self.func_pointers += '#ifdef %s\n' % self.featureExtraProtect
-                    self.typedefs += '#ifdef %s\n' % self.featureExtraProtect
-            if (name not in self.validate_only):
-                self.typedefs += 'typedef bool (*PFN_manual_%s)%s\n' % (name, typedef)
-                self.func_pointers += '    {"%s", nullptr},\n' % name
-            self.intercepts += [ '    {"%s", (void*)%s},' % (name,name) ]
+                self.func_pointers += '#ifdef %s\n' % self.featureExtraProtect
+                self.typedefs += '#ifdef %s\n' % self.featureExtraProtect
+            self.typedefs += 'typedef bool (*PFN_manual_%s)%s\n' % (name, typedef)
+            self.func_pointers += '    {"%s", nullptr},\n' % name
             # Strip off 'vk' from API name
-            self.declarations += [ '%s' % decls[0].replace("VKAPI_CALL vk", "VKAPI_CALL ") ]
+            self.declarations += [ '%s%s' % ('bool parameter_validation::PreCallValidate', decls[0].split("VKAPI_CALL vk")[1])]
             if (self.featureExtraProtect is not None):
-                self.intercepts += [ '#endif' ]
                 self.declarations += [ '#endif' ]
                 if (name not in self.validate_only):
                     self.func_pointers += '#endif\n'
@@ -1231,49 +1218,21 @@ class ParameterValidationOutputGenerator(OutputGenerator):
                     ext_test = 'if (!local_data->extensions.%s) skip |= OutputExtensionError(local_data, "%s", %s);\n' % (ext_enable_name, command.name, ext_name_define)
                     lines.insert(0, ext_test)
             if lines:
-                cmdDef = self.getCmdDef(command) + '\n'
+                cmdDef = self.getCmdDef(command) + ' {\n'
+                cmdDef = cmdDef.split('VKAPI_CALL vk')[1]
+                cmdDef = 'bool parameter_validation::PreCallValidate' + cmdDef
                 # For a validation-only routine, change the function declaration
                 if just_validate:
-                    jv_def = '// Generated function handles validation only -- API definition is in non-generated source\n'
-                    jv_def += 'extern %s\n\n' % command.cdecl
-                    cmdDef = 'bool parameter_validation_' + cmdDef.split('VKAPI_CALL ',1)[1]
-                    if command.name == 'vkCreateInstance':
-                        cmdDef = cmdDef.replace('(\n', '(\n    VkInstance instance,\n')
-                    cmdDef = jv_def + cmdDef
-                cmdDef += '{\n'
-
-                # Add list of commands to skip -- just generate the routine signature and put the manual source in parameter_validation_utils.cpp
-                if command.params[0].type in ["VkInstance", "VkPhysicalDevice"] or command.name == 'vkCreateInstance':
-                    map_name = 'instance_layer_data_map'
-                    map_type = 'instance_layer_data'
+                    cmdDef = '// %s: implementation is in non-generated source\n' % command.name
                 else:
-                    map_name = 'layer_data_map'
-                    map_type = 'layer_data'
-                instance_param = command.params[0].name
-                if command.name == 'vkCreateInstance':
-                    instance_param = 'instance'
-                layer_data = '    %s *local_data = GetLayerDataPtr(get_dispatch_key(%s), %s);\n' % (map_type, instance_param, map_name)
-                cmdDef += layer_data
-                cmdDef += '%sbool skip = false;\n' % indent
-                if not just_validate:
-                    if command.result != '':
-                        if command.result == "VkResult":
-                            cmdDef += indent + '%s result = VK_ERROR_VALIDATION_FAILED_EXT;\n' % command.result
-                        elif command.result == "VkBool32":
-                            cmdDef += indent + '%s result = VK_FALSE;\n' % command.result
+                    cmdDef += '%sbool skip = false;\n' % indent
+                    for line in lines:
+                        if type(line) is list:
+                            for sub in line:
+                                cmdDef += indent + sub
                         else:
-                            raise Exception("Unknown result type: " + command.result)
-
-                    cmdDef += '%sstd::unique_lock<std::mutex> lock(global_lock);\n' % indent
-                for line in lines:
-                    cmdDef += '\n'
-                    if type(line) is list:
-                        for sub in line:
-                            cmdDef += indent + sub
-                    else:
-                        cmdDef += indent + line
-                cmdDef += '\n'
-                if not just_validate:
+                            cmdDef += indent + line
+                    #cmdDef += '\n'
                     # Generate parameter list for manual fcn and down-chain calls
                     params_text = ''
                     for param in command.params:
@@ -1283,22 +1242,7 @@ class ParameterValidationOutputGenerator(OutputGenerator):
                     cmdDef += '%sPFN_manual_%s custom_func = (PFN_manual_%s)custom_functions["%s"];\n' % (indent, command.name, command.name, command.name)
                     cmdDef += '%sif (custom_func != nullptr) {\n' % indent
                     cmdDef += '    %sskip |= custom_func(%s);\n' % (indent, params_text)
-                    cmdDef += '%s}\n\n' % indent
-                    # Release the validation lock
-                    cmdDef += '%slock.unlock();\n' % indent
-                    # Generate skip check and down-chain call
-                    cmdDef += '%sif (!skip) {\n'  % indent
-                    down_chain_call = '    %s' % indent
-                    if command.result != '':
-                        down_chain_call += '    result = '
-                    # Generate down-chain API call
-                    api_call = '%s(%s);' % (command.name, params_text)
-                    down_chain_call += 'local_data->dispatch_table.%s\n' % api_call[2:]
-                    cmdDef += down_chain_call
                     cmdDef += '%s}\n' % indent
-                    if command.result != '':
-                        cmdDef += '%sreturn result;\n' % indent
-                else:
                     cmdDef += '%sreturn skip;\n' % indent
-                cmdDef += '}\n'
+                    cmdDef += '}\n'
                 self.validation.append(cmdDef)
