@@ -150,6 +150,45 @@ class ParameterValidationOutputGenerator(OutputGenerator):
             'vkCreateDebugUtilsMessengerEXT',
             'vkDestroyDebugUtilsMessengerEXT',
             ]
+        self.functions_with_manual_checks = [
+            'vkGetDeviceQueue',
+            'vkCreateBuffer',
+            'vkCreateImage',
+            'vkCreateImageView',
+            'vkCreateGraphicsPipelines',
+            'vkCreateComputePipelines',
+            'vkCreateSampler',
+            'vkCreateDescriptorSetLayout',
+            'vkFreeDescriptorSets',
+            'vkUpdateDescriptorSets',
+            'vkCreateRenderPass',
+            'vkCreateRenderPass2KHR',
+            'vkBeginCommandBuffer',
+            'vkCmdSetViewport',
+            'vkCmdSetScissor',
+            'vkCmdSetLineWidth',
+            'vkCmdDraw',
+            'vkCmdDrawIndirect',
+            'vkCmdDrawIndexedIndirect',
+            'vkCmdCopyImage',
+            'vkCmdBlitImage',
+            'vkCmdCopyBufferToImage',
+            'vkCmdCopyImageToBuffer',
+            'vkCmdUpdateBuffer',
+            'vkCmdFillBuffer',
+            'vkCreateSwapchainKHR',
+            'vkQueuePresentKHR',
+            'vkCreateDescriptorPool',
+            'vkCmdDispatch',
+            'vkCmdDispatchIndirect',
+            'vkCmdDispatchBaseKHR',
+            'vkCmdSetExclusiveScissorNV',
+            'vkCmdSetViewportShadingRatePaletteNV',
+            'vkCmdSetCoarseSampleOrderNV',
+            'vkCmdDrawMeshTasksNV',
+            'vkCmdDrawMeshTasksIndirectNV',
+            'vkCmdDrawMeshTasksIndirectCountNV',
+            ]
         # Structure fields to ignore
         self.structMemberBlacklist = { 'VkWriteDescriptorSet' : ['dstSet'] }
         # Validation conditions for some special case struct members that are conditionally validated
@@ -166,8 +205,6 @@ class ParameterValidationOutputGenerator(OutputGenerator):
         self.validatedStructs = dict()                    # Map of structs type names to generated validation code for that struct type
         self.enumRanges = dict()                          # Map of enum name to BEGIN/END range values
         self.enumValueLists = ''                          # String containing enumerated type map definitions
-        self.func_pointers = ''                           # String containing function pointers for manual PV functions
-        self.typedefs = ''                                # String containing function pointer typedefs
         self.flags = set()                                # Map of flags typenames
         self.flagBits = dict()                            # Map of flag bits typename to list of values
         self.newFlags = set()                             # Map of flags typenames /defined in the current feature/
@@ -297,20 +334,12 @@ class ParameterValidationOutputGenerator(OutputGenerator):
         write('extern std::unordered_map<void *, layer_data *> layer_data_map;', file = self.outFile)
         write('extern std::unordered_map<void *, instance_layer_data *> instance_layer_data_map;', file = self.outFile)
         self.newline()
-        #
-        # FuncPtrMap
-        self.func_pointers += 'std::unordered_map<std::string, void *> custom_functions = {\n'
     #
     # Called at end-time for final content output
     def endFile(self):
         # C-specific
         self.newline()
         write(self.enumValueLists, file=self.outFile)
-        self.newline()
-        write(self.typedefs, file=self.outFile)
-        self.newline()
-        self.func_pointers += '};\n'
-        write(self.func_pointers, file=self.outFile)
         self.newline()
 
         pnext_handler  = 'bool ValidatePnextStructContents(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name, const GenericHeader* header) {\n'
@@ -586,17 +615,10 @@ class ParameterValidationOutputGenerator(OutputGenerator):
         if name not in self.blacklist:
             if (self.featureExtraProtect is not None):
                 self.declarations += [ '#ifdef %s' % self.featureExtraProtect ]
-                self.func_pointers += '#ifdef %s\n' % self.featureExtraProtect
-                self.typedefs += '#ifdef %s\n' % self.featureExtraProtect
-            self.typedefs += 'typedef bool (*PFN_manual_%s)%s\n' % (name, typedef)
-            self.func_pointers += '    {"%s", nullptr},\n' % name
             # Strip off 'vk' from API name
             self.declarations += [ '%s%s' % ('bool parameter_validation::PreCallValidate', decls[0].split("VKAPI_CALL vk")[1])]
             if (self.featureExtraProtect is not None):
                 self.declarations += [ '#endif' ]
-                if (name not in self.validate_only):
-                    self.func_pointers += '#endif\n'
-                    self.typedefs += '#endif\n'
         if name not in self.blacklist:
             params = cmdinfo.elem.findall('param')
             # Get list of array lengths
@@ -1239,10 +1261,6 @@ class ParameterValidationOutputGenerator(OutputGenerator):
                         params_text += '%s, ' % param.name
                     params_text = params_text[:-2]
                     # Generate call to manual function if its function pointer is non-null
-                    cmdDef += '%sPFN_manual_%s custom_func = (PFN_manual_%s)custom_functions["%s"];\n' % (indent, command.name, command.name, command.name)
-                    cmdDef += '%sif (custom_func != nullptr) {\n' % indent
-                    cmdDef += '    %sskip |= custom_func(%s);\n' % (indent, params_text)
-                    cmdDef += '%s}\n' % indent
                     cmdDef += '%sreturn skip;\n' % indent
                     cmdDef += '}\n'
                 self.validation.append(cmdDef)

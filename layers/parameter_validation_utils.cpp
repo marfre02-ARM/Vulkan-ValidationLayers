@@ -52,34 +52,34 @@
 
 extern std::unordered_map<std::string, void *> custom_functions;
 
-extern bool parameter_validation_vkCreateInstance(VkInstance instance, const VkInstanceCreateInfo *pCreateInfo,
-                                                  const VkAllocationCallbacks *pAllocator, VkInstance *pInstance);
-extern bool parameter_validation_vkDestroyInstance(VkInstance instance, const VkAllocationCallbacks *pAllocator);
-extern bool parameter_validation_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo,
-                                                const VkAllocationCallbacks *pAllocator, VkDevice *pDevice);
-extern bool parameter_validation_vkDestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator);
-extern bool parameter_validation_vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo *pCreateInfo,
-                                                   const VkAllocationCallbacks *pAllocator, VkQueryPool *pQueryPool);
-extern bool parameter_validation_vkCreateDebugReportCallbackEXT(VkInstance instance,
-                                                                const VkDebugReportCallbackCreateInfoEXT *pCreateInfo,
-                                                                const VkAllocationCallbacks *pAllocator,
-                                                                VkDebugReportCallbackEXT *pMsgCallback);
-extern bool parameter_validation_vkDestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT msgCallback,
-                                                                 const VkAllocationCallbacks *pAllocator);
-extern bool parameter_validation_vkCreateDebugUtilsMessengerEXT(VkInstance instance,
-                                                                const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-                                                                const VkAllocationCallbacks *pAllocator,
-                                                                VkDebugUtilsMessengerEXT *pMessenger);
-extern bool parameter_validation_vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT messenger,
-                                                                 const VkAllocationCallbacks *pAllocator);
-extern bool parameter_validation_vkCreateCommandPool(VkDevice device, const VkCommandPoolCreateInfo *pCreateInfo,
-                                                     const VkAllocationCallbacks *pAllocator, VkCommandPool *pCommandPool);
-extern bool parameter_validation_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo *pCreateInfo,
-                                                    const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass);
-extern bool parameter_validation_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2KHR *pCreateInfo,
-                                                        const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass);
-extern bool parameter_validation_vkDestroyRenderPass(VkDevice device, VkRenderPass renderPass,
-                                                     const VkAllocationCallbacks *pAllocator);
+////////extern bool parameter_validation_vkCreateInstance(VkInstance instance, const VkInstanceCreateInfo *pCreateInfo,
+////////                                                  const VkAllocationCallbacks *pAllocator, VkInstance *pInstance);
+////////extern bool parameter_validation_vkDestroyInstance(VkInstance instance, const VkAllocationCallbacks *pAllocator);
+////////extern bool parameter_validation_vkCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo,
+////////                                                const VkAllocationCallbacks *pAllocator, VkDevice *pDevice);
+////////extern bool parameter_validation_vkDestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator);
+////////extern bool parameter_validation_vkCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo *pCreateInfo,
+////////                                                   const VkAllocationCallbacks *pAllocator, VkQueryPool *pQueryPool);
+////////extern bool parameter_validation_vkCreateDebugReportCallbackEXT(VkInstance instance,
+////////                                                                const VkDebugReportCallbackCreateInfoEXT *pCreateInfo,
+////////                                                                const VkAllocationCallbacks *pAllocator,
+////////                                                                VkDebugReportCallbackEXT *pMsgCallback);
+////////extern bool parameter_validation_vkDestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT msgCallback,
+////////                                                                 const VkAllocationCallbacks *pAllocator);
+////////extern bool parameter_validation_vkCreateDebugUtilsMessengerEXT(VkInstance instance,
+////////                                                                const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
+////////                                                                const VkAllocationCallbacks *pAllocator,
+////////                                                                VkDebugUtilsMessengerEXT *pMessenger);
+////////extern bool parameter_validation_vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT messenger,
+////////                                                                 const VkAllocationCallbacks *pAllocator);
+////////extern bool parameter_validation_vkCreateCommandPool(VkDevice device, const VkCommandPoolCreateInfo *pCreateInfo,
+////////                                                     const VkAllocationCallbacks *pAllocator, VkCommandPool *pCommandPool);
+////////extern bool parameter_validation_vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo *pCreateInfo,
+////////                                                    const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass);
+////////extern bool parameter_validation_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2KHR *pCreateInfo,
+////////                                                        const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass);
+////////extern bool parameter_validation_vkDestroyRenderPass(VkDevice device, VkRenderPass renderPass,
+////////                                                     const VkAllocationCallbacks *pAllocator);
 
 
 void InitializeManualParameterValidationFunctionPointers(void);
@@ -3205,63 +3205,6 @@ bool pv_vkCmdDrawMeshTasksIndirectCountNV(VkCommandBuffer commandBuffer, VkBuffe
 
     return skip;
 }
-
-// If additional validation is needed outside of the generated checks, a manual routine can be added to this file
-// and the address filled in here. The autogenerated source will call these routines if the pointers are not NULL.
-void InitializeManualParameterValidationFunctionPointers() {
-    custom_functions["vkGetDeviceQueue"] = (void *)pv_vkGetDeviceQueue;
-    custom_functions["vkCreateBuffer"] = (void *)pv_vkCreateBuffer;
-    custom_functions["vkCreateImage"] = (void *)pv_vkCreateImage;
-    custom_functions["vkCreateImageView"] = (void *)pv_vkCreateImageView;
-    custom_functions["vkCreateGraphicsPipelines"] = (void *)pv_vkCreateGraphicsPipelines;
-    custom_functions["vkCreateComputePipelines"] = (void *)pv_vkCreateComputePipelines;
-    custom_functions["vkCreateSampler"] = (void *)pv_vkCreateSampler;
-    custom_functions["vkCreateDescriptorSetLayout"] = (void *)pv_vkCreateDescriptorSetLayout;
-    custom_functions["vkFreeDescriptorSets"] = (void *)pv_vkFreeDescriptorSets;
-    custom_functions["vkUpdateDescriptorSets"] = (void *)pv_vkUpdateDescriptorSets;
-    custom_functions["vkCreateRenderPass"] = (void *)pv_vkCreateRenderPass;
-    custom_functions["vkCreateRenderPass2KHR"] = (void *)pv_vkCreateRenderPass2KHR;
-    custom_functions["vkBeginCommandBuffer"] = (void *)pv_vkBeginCommandBuffer;
-    custom_functions["vkCmdSetViewport"] = (void *)pv_vkCmdSetViewport;
-    custom_functions["vkCmdSetScissor"] = (void *)pv_vkCmdSetScissor;
-    custom_functions["vkCmdSetLineWidth"] = (void *)pv_vkCmdSetLineWidth;
-    custom_functions["vkCmdDraw"] = (void *)pv_vkCmdDraw;
-    custom_functions["vkCmdDrawIndirect"] = (void *)pv_vkCmdDrawIndirect;
-    custom_functions["vkCmdDrawIndexedIndirect"] = (void *)pv_vkCmdDrawIndexedIndirect;
-    custom_functions["vkCmdCopyImage"] = (void *)pv_vkCmdCopyImage;
-    custom_functions["vkCmdBlitImage"] = (void *)pv_vkCmdBlitImage;
-    custom_functions["vkCmdCopyBufferToImage"] = (void *)pv_vkCmdCopyBufferToImage;
-    custom_functions["vkCmdCopyImageToBuffer"] = (void *)pv_vkCmdCopyImageToBuffer;
-    custom_functions["vkCmdUpdateBuffer"] = (void *)pv_vkCmdUpdateBuffer;
-    custom_functions["vkCmdFillBuffer"] = (void *)pv_vkCmdFillBuffer;
-    custom_functions["vkCreateSwapchainKHR"] = (void *)pv_vkCreateSwapchainKHR;
-    custom_functions["vkQueuePresentKHR"] = (void *)pv_vkQueuePresentKHR;
-    custom_functions["vkCreateDescriptorPool"] = (void *)pv_vkCreateDescriptorPool;
-    custom_functions["vkCmdDispatch"] = (void *)pv_vkCmdDispatch;
-    custom_functions["vkCmdDispatchIndirect"] = (void *)pv_vkCmdDispatchIndirect;
-    custom_functions["vkCmdDispatchBaseKHR"] = (void *)pv_vkCmdDispatchBaseKHR;
-    custom_functions["vkCmdSetExclusiveScissorNV"] = (void *)pv_vkCmdSetExclusiveScissorNV;
-    custom_functions["vkCmdSetViewportShadingRatePaletteNV"] = (void *)pv_vkCmdSetViewportShadingRatePaletteNV;
-    custom_functions["vkCmdSetCoarseSampleOrderNV"] = (void *)pv_vkCmdSetCoarseSampleOrderNV;
-    custom_functions["vkCmdDrawMeshTasksNV"] = (void *)pv_vkCmdDrawMeshTasksNV;
-    custom_functions["vkCmdDrawMeshTasksIndirectNV"] = (void *)pv_vkCmdDrawMeshTasksIndirectNV;
-    custom_functions["vkCmdDrawMeshTasksIndirectCountNV"] = (void *)pv_vkCmdDrawMeshTasksIndirectCountNV;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
