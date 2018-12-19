@@ -21,6 +21,10 @@
 
 #pragma once
 
+#include <bitset>
+
+#include "parameter_name.h"
+
 // Suppress unused warning on Linux
 #if defined(__GNUC__)
 #define DECORATE_UNUSED __attribute__((unused))
@@ -79,7 +83,6 @@ const uint32_t MaxEnumValue = 0x7FFFFFFF;
 
 // Misc parameters of log_msg that are likely constant per command (or low frequency change)
 struct LogMiscParams {
-    const debug_report_data *debug_data;
     VkDebugReportObjectTypeEXT objectType;
     uint64_t srcObject;
     const char *api_name;
@@ -110,14 +113,12 @@ class StatelessValidation : public ValidationObject {
     std::unordered_map<VkRenderPass, SubpassesUsageStates> renderpasses_states;
 
     // Constructor for stateles validation tracking
-    StatelessValidation() : {}
-
+    // StatelessValidation() : {}
     /**
      * Validate a minimum value.
      *
      * Verify that the specified value is greater than the specified lower bound.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param api_name Name of API call being validated.
      * @param parameter_name Name of parameter being validated.
      * @param value Value to validate.
@@ -133,7 +134,7 @@ class StatelessValidation : public ValidationObject {
             std::ostringstream ss;
             ss << misc.api_name << ": parameter " << parameter_name.get_name() << " (= " << value << ") is greater than "
                << lower_bound;
-            skip_call |= log_msg(misc.debug_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, misc.objectType, misc.srcObject, vuid, "%s",
+            skip_call |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, misc.objectType, misc.srcObject, vuid, "%s",
                                  ss.str().c_str());
         }
 
@@ -150,13 +151,12 @@ class StatelessValidation : public ValidationObject {
      *
      * Verify that a required pointer is not NULL.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param apiName Name of API call being validated.
      * @param parameterName Name of parameter being validated.
      * @param value Pointer to validate.
      * @return Boolean value indicating that the call should be skipped.
      */
-     bool validate_required_pointer(debug_report_data *report_data, const char *apiName, const ParameterName &parameterName,
+     bool validate_required_pointer(const char *apiName, const ParameterName &parameterName,
                                           const void *value, const std::string &vuid) {
         bool skip_call = false;
 
@@ -175,7 +175,6 @@ class StatelessValidation : public ValidationObject {
      * count parameter is not optional, verify that it is not 0.  If the array
      * parameter is NULL, and it is not optional, verify that count is 0.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param apiName Name of API call being validated.
      * @param countName Name of count parameter.
      * @param arrayName Name of array parameter.
@@ -186,7 +185,7 @@ class StatelessValidation : public ValidationObject {
      * @return Boolean value indicating that the call should be skipped.
      */
     template <typename T1, typename T2>
-    bool validate_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
+    bool validate_array(const char *apiName, const ParameterName &countName,
                         const ParameterName &arrayName, T1 count, const T2 *array, bool countRequired, bool arrayRequired,
                         const std::string &count_required_vuid, const std::string &array_required_vuid) {
         bool skip_call = false;
@@ -217,7 +216,6 @@ class StatelessValidation : public ValidationObject {
      * The array parameter will typically be optional for this case (where count is
      * a pointer), allowing the caller to retrieve the available count.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param apiName Name of API call being validated.
      * @param countName Name of count parameter.
      * @param arrayName Name of array parameter.
@@ -229,7 +227,7 @@ class StatelessValidation : public ValidationObject {
      * @return Boolean value indicating that the call should be skipped.
      */
     template <typename T1, typename T2>
-    bool validate_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
+    bool validate_array(const char *apiName, const ParameterName &countName,
                         const ParameterName &arrayName, const T1 *count, const T2 *array, bool countPtrRequired,
                         bool countValueRequired, bool arrayRequired, const std::string &count_required_vuid,
                         const std::string &array_required_vuid) {
@@ -256,7 +254,6 @@ class StatelessValidation : public ValidationObject {
      * not NULL, verify that each structure's sType field is set to the correct
      * VkStructureType value.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param apiName Name of API call being validated.
      * @param parameterName Name of struct parameter being validated.
      * @param sTypeName Name of expected VkStructureType value.
@@ -266,7 +263,7 @@ class StatelessValidation : public ValidationObject {
      * @return Boolean value indicating that the call should be skipped.
      */
     template <typename T>
-    bool validate_struct_type(debug_report_data *report_data, const char *apiName, const ParameterName &parameterName,
+    bool validate_struct_type(const char *apiName, const ParameterName &parameterName,
                               const char *sTypeName, const T *value, VkStructureType sType, bool required,
                               const std::string &struct_vuid, const std::string &stype_vuid) {
         bool skip_call = false;
@@ -292,7 +289,6 @@ class StatelessValidation : public ValidationObject {
      * the array contains 1 or more structures, verify that each structure's
      * sType field is set to the correct VkStructureType value.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param apiName Name of API call being validated.
      * @param countName Name of count parameter.
      * @param arrayName Name of array parameter.
@@ -305,7 +301,7 @@ class StatelessValidation : public ValidationObject {
      * @return Boolean value indicating that the call should be skipped.
      */
     template <typename T>
-    bool validate_struct_type_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
+    bool validate_struct_type_array(const char *apiName, const ParameterName &countName,
                                     const ParameterName &arrayName, const char *sTypeName, uint32_t count, const T *array,
                                     VkStructureType sType, bool countRequired, bool arrayRequired, const std::string &stype_vuid,
                                     const std::string &param_vuid) {
@@ -336,7 +332,6 @@ class StatelessValidation : public ValidationObject {
      * If the array contains 1 or more structures, verify that each structure's
      * sType field is set to the correct VkStructureType value.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param apiName Name of API call being validated.
      * @param countName Name of count parameter.
      * @param arrayName Name of array parameter.
@@ -350,7 +345,7 @@ class StatelessValidation : public ValidationObject {
      * @return Boolean value indicating that the call should be skipped.
      */
     template <typename T>
-    bool validate_struct_type_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
+    bool validate_struct_type_array(const char *apiName, const ParameterName &countName,
                                     const ParameterName &arrayName, const char *sTypeName, uint32_t *count, const T *array,
                                     VkStructureType sType, bool countPtrRequired, bool countValueRequired, bool arrayRequired,
                                     const std::string &stype_vuid, const std::string &param_vuid) {
@@ -375,14 +370,13 @@ class StatelessValidation : public ValidationObject {
      *
      * Verify that the specified handle is not VK_NULL_HANDLE.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param api_name Name of API call being validated.
      * @param parameter_name Name of struct parameter being validated.
      * @param value Handle to validate.
      * @return Boolean value indicating that the call should be skipped.
      */
     template <typename T>
-    bool validate_required_handle(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name,
+    bool validate_required_handle(const char *api_name, const ParameterName &parameter_name,
                                   T value) {
         bool skip_call = false;
 
@@ -407,7 +401,6 @@ class StatelessValidation : public ValidationObject {
      *       of the handles are allowed to be VK_NULL_HANDLE.  For arrays of handles
      *       that are allowed to contain VK_NULL_HANDLE, use validate_array() instead.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param api_name Name of API call being validated.
      * @param count_name Name of count parameter.
      * @param array_name Name of array parameter.
@@ -418,7 +411,7 @@ class StatelessValidation : public ValidationObject {
      * @return Boolean value indicating that the call should be skipped.
      */
     template <typename T>
-    bool validate_handle_array(debug_report_data *report_data, const char *api_name, const ParameterName &count_name,
+    bool validate_handle_array(const char *api_name, const ParameterName &count_name,
                                const ParameterName &array_name, uint32_t count, const T *array, bool count_required,
                                bool array_required) {
         bool skip_call = false;
@@ -449,7 +442,6 @@ class StatelessValidation : public ValidationObject {
      * parameter is NULL, and it is not optional, verify that count is 0.  If the
      * array parameter is not NULL, verify that none of the strings are NULL.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param apiName Name of API call being validated.
      * @param countName Name of count parameter.
      * @param arrayName Name of array parameter.
@@ -459,7 +451,7 @@ class StatelessValidation : public ValidationObject {
      * @param arrayRequired The 'array' parameter may not be NULL when true.
      * @return Boolean value indicating that the call should be skipped.
      */
-    bool validate_string_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
+    bool validate_string_array(const char *apiName, const ParameterName &countName,
                                       const ParameterName &arrayName, uint32_t count, const char *const *array, bool countRequired,
                                       bool arrayRequired, const std::string &count_required_vuid,
                                       const std::string &array_required_vuid) {
@@ -483,7 +475,7 @@ class StatelessValidation : public ValidationObject {
     }
 
     // Forward declaration for pNext validation
-    bool ValidatePnextStructContents(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name,
+    bool ValidatePnextStructContents(const char *api_name, const ParameterName &parameter_name,
                                      const GenericHeader *header);
 
     /**
@@ -493,7 +485,6 @@ class StatelessValidation : public ValidationObject {
      * allowed extension structures.  If no extension structures are allowed,
      * verify that pNext is null.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param api_name Name of API call being validated.
      * @param parameter_name Name of parameter being validated.
      * @param allowed_struct_names Names of allowed structs.
@@ -503,7 +494,7 @@ class StatelessValidation : public ValidationObject {
      * @param header_version Version of header defining the pNext validation rules.
      * @return Boolean value indicating that the call should be skipped.
      */
-    bool validate_struct_pnext(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name,
+    bool validate_struct_pnext(const char *api_name, const ParameterName &parameter_name,
                                       const char *allowed_struct_names, const void *next, size_t allowed_type_count,
                                       const VkStructureType *allowed_types, uint32_t header_version, const std::string &vuid) {
         bool skip_call = false;
@@ -596,13 +587,12 @@ class StatelessValidation : public ValidationObject {
      *
      * Generate a warning if a VkBool32 value is neither VK_TRUE nor VK_FALSE.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param apiName Name of API call being validated.
      * @param parameterName Name of parameter being validated.
      * @param value Boolean value to validate.
      * @return Boolean value indicating that the call should be skipped.
      */
-    bool validate_bool32(debug_report_data *report_data, const char *apiName, const ParameterName &parameterName,
+    bool validate_bool32(const char *apiName, const ParameterName &parameterName,
                                 VkBool32 value) {
         bool skip_call = false;
 
@@ -625,7 +615,6 @@ class StatelessValidation : public ValidationObject {
      *
      * @note This function does not expect to process enumerations defining bitmask flag bits.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param apiName Name of API call being validated.
      * @param parameterName Name of parameter being validated.
      * @param enumName Name of the enumeration being validated.
@@ -634,7 +623,7 @@ class StatelessValidation : public ValidationObject {
      * @return Boolean value indicating that the call should be skipped.
      */
     template <typename T>
-    bool validate_ranged_enum(debug_report_data *report_data, const char *apiName, const ParameterName &parameterName,
+    bool validate_ranged_enum(const char *apiName, const ParameterName &parameterName,
                               const char *enumName, const std::vector<T> &valid_values, T value, const std::string &vuid) {
         bool skip = false;
 
@@ -659,7 +648,6 @@ class StatelessValidation : public ValidationObject {
      *
      * @note This function does not expect to process enumerations defining bitmask flag bits.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param apiName Name of API call being validated.
      * @param countName Name of count parameter.
      * @param arrayName Name of array parameter.
@@ -672,7 +660,7 @@ class StatelessValidation : public ValidationObject {
      * @return Boolean value indicating that the call should be skipped.
      */
     template <typename T>
-    bool validate_ranged_enum_array(debug_report_data *report_data, const char *apiName, const ParameterName &countName,
+    bool validate_ranged_enum_array(const char *apiName, const ParameterName &countName,
                                            const ParameterName &arrayName, const char *enumName, const std::vector<T> &valid_values,
                                            uint32_t count, const T *array, bool countRequired, bool arrayRequired) {
         bool skip_call = false;
@@ -701,13 +689,12 @@ class StatelessValidation : public ValidationObject {
      * Verify that the specified value is zero, to check VkFlags values that are reserved for
      * future use.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param api_name Name of API call being validated.
      * @param parameter_name Name of parameter being validated.
      * @param value Value to validate.
      * @return Boolean value indicating that the call should be skipped.
      */
-    bool validate_reserved_flags(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name,
+    bool validate_reserved_flags(const char *api_name, const ParameterName &parameter_name,
                                         VkFlags value, const std::string &vuid) {
         bool skip_call = false;
 
@@ -725,7 +712,6 @@ class StatelessValidation : public ValidationObject {
      * Generate a warning if a value with a VkFlags derived type does not contain valid flag bits
      * for that type.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param api_name Name of API call being validated.
      * @param parameter_name Name of parameter being validated.
      * @param flag_bits_name Name of the VkFlags type being validated.
@@ -735,7 +721,7 @@ class StatelessValidation : public ValidationObject {
      * @param singleFlag The 'value' parameter may not contain more than one bit from all_flags.
      * @return Boolean value indicating that the call should be skipped.
      */
-    bool validate_flags(debug_report_data *report_data, const char *api_name, const ParameterName &parameter_name,
+    bool validate_flags(const char *api_name, const ParameterName &parameter_name,
                                const char *flag_bits_name, VkFlags all_flags, VkFlags value, bool flags_required, bool singleFlag,
                                const std::string &vuid) {
         bool skip_call = false;
@@ -766,7 +752,6 @@ class StatelessValidation : public ValidationObject {
      * Generate a warning if a value with a VkFlags derived type does not contain valid flag bits
      * for that type.
      *
-     * @param report_data debug_report_data object for routing validation messages.
      * @param api_name Name of API call being validated.
      * @param count_name Name of parameter being validated.
      * @param array_name Name of parameter being validated.
@@ -778,7 +763,7 @@ class StatelessValidation : public ValidationObject {
      * @param array_required The 'array' parameter may not be NULL when true.
      * @return Boolean value indicating that the call should be skipped.
      */
-    bool validate_flags_array(debug_report_data *report_data, const char *api_name, const ParameterName &count_name,
+    bool validate_flags_array(const char *api_name, const ParameterName &count_name,
                                      const ParameterName &array_name, const char *flag_bits_name, VkFlags all_flags, uint32_t count,
                                      const VkFlags *array, bool count_required, bool array_required) {
         bool skip_call = false;
@@ -809,6 +794,10 @@ class StatelessValidation : public ValidationObject {
         return skip_call;
     }
 
+
+    bool ValidatePnextStructContents(const char *api_name, const ParameterName &parameter_name, const GenericHeader* header);
+
+
     void PostCallRecordCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo *pCreateInfo,
                                         const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass);
     void PostCallRecordCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2KHR *pCreateInfo,
@@ -819,9 +808,6 @@ class StatelessValidation : public ValidationObject {
 
     bool manual_PreCallValidateCreateInstance(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator,
                                               VkInstance *pInstance);
-
-    void PostCallRecordCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo,
-                                    const VkAllocationCallbacks *pAllocator, VkDevice *pDevice);
 
     bool manual_PreCallValidateCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo,
                                             const VkAllocationCallbacks *pAllocator, VkDevice *pDevice);
@@ -837,7 +823,7 @@ class StatelessValidation : public ValidationObject {
     bool manual_PreCallValidateCreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo,
                                                const VkAllocationCallbacks *pAllocator, VkImageView *pView);
 
-    bool manual_PreCallValidateViewport(const layer_data *device_data, const VkViewport &viewport, const char *fn_name,
+    bool manual_PreCallValidateViewport(const VkViewport &viewport, const char *fn_name,
                                         const char *param_name, VkDebugReportObjectTypeEXT object_type, uint64_t object = 0);
 
     bool manual_PreCallValidateCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount,
@@ -946,6 +932,5 @@ class StatelessValidation : public ValidationObject {
 
     bool manual_PreCallValidateEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice, const char *pLayerName,
                                                                   uint32_t *pPropertyCount, VkExtensionProperties *pProperties);
-
 #include "parameter_validation.h"
-}  // Class StatelessValidation
+};  // Class StatelessValidation
