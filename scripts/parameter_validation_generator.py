@@ -126,84 +126,18 @@ class ParameterValidationOutputGenerator(OutputGenerator):
         self.declarations = []
 
         inline_custom_source_preamble = """
-void parameter_validation::PostCallRecordCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo,
-                                                      const VkAllocationCallbacks *pAllocator, VkDevice *pDevice) {
-
-        // Store queue family data
-        if ((pCreateInfo != nullptr) && (pCreateInfo->pQueueCreateInfos != nullptr)) {
-            for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; ++i) {
-                queueFamilyIndexMap.insert(std::make_pair(pCreateInfo->pQueueCreateInfos[i].queueFamilyIndex,
-                                                          pCreateInfo->pQueueCreateInfos[i].queueCount));
-            }
-        }
-
-        // LUGMAL DO WE NEED THIS?
-        memcpy(&device_limits, &device_properties.limits, sizeof(VkPhysicalDeviceLimits));
-
-        if (device_extensions.vk_nv_shading_rate_image) {
-            // Get the needed shading rate image limits
-            auto shading_rate_image_props = lvl_init_struct<VkPhysicalDeviceShadingRateImagePropertiesNV>();
-            auto prop2 = lvl_init_struct<VkPhysicalDeviceProperties2KHR>(&shading_rate_image_props);
-            instance_dispatch_table.GetPhysicalDeviceProperties2KHR(physicalDevice, &prop2);
-            phys_dev_ext_props.shading_rate_image_props = shading_rate_image_props;
-        }
-
-        if (device_extensions.vk_nv_mesh_shader) {
-            // Get the needed mesh shader limits
-            auto mesh_shader_props = lvl_init_struct<VkPhysicalDeviceMeshShaderPropertiesNV>();
-            auto prop2 = lvl_init_struct<VkPhysicalDeviceProperties2KHR>(&mesh_shader_props);
-            instance_dispatch_table.GetPhysicalDeviceProperties2KHR(physicalDevice, &prop2);
-            phys_dev_ext_props.mesh_shader_props = mesh_shader_props;
-        }
-
-        // Save app-enabled features in this device's validation object
-        // The enabled features can come from either pEnabledFeatures, or from the pNext chain
-        const VkPhysicalDeviceFeatures *enabled_features_found = pCreateInfo->pEnabledFeatures;
-        if ((nullptr == enabled_features_found) && device_extensions.vk_khr_get_physical_device_properties_2) {
-            const auto *features2 = lvl_find_in_chain<VkPhysicalDeviceFeatures2KHR>(pCreateInfo->pNext);
-            if (features2) {
-                enabled_features_found = &(features2->features);
-            }
-        }
-        if (enabled_features_found) {
-            physical_device_features = *enabled_features_found;
-        } else {
-            memset(&physical_device_features, 0, sizeof(VkPhysicalDeviceFeatures));
-        }
-    }
-}
 """
 
-
-
-
-        # Commands to ignore
-        self.blacklist = [
-            'vkGetInstanceProcAddr',
-            'vkGetDeviceProcAddr',
-            'vkEnumerateInstanceVersion',
-            'vkEnumerateInstanceLayerProperties',
-            'vkEnumerateInstanceExtensionProperties',
-            'vkEnumerateDeviceLayerProperties',
-            'vkEnumerateDeviceExtensionProperties',
-            'vkCmdDebugMarkerEndEXT',
-            ]
-        self.validate_only = [
-#           'vkCreateInstance',
-#           'vkDestroyInstance',
-#           'vkCreateDevice',
-#           'vkDestroyDevice',
-            'vkCreateQueryPool',
-#           'vkCreateDebugReportCallbackEXT',
-#           'vkDestroyDebugReportCallbackEXT',
-#           'vkCreateCommandPool',
+        # These functions have additional, custome-written checks in the utils cpp file. CodeGen will automatically add a call
+        # to those functions of the form 'bool manual_PreCallValidateAPIName', where the 'vk' is dropped.
+        # see 'manual_PreCallValidateCreateGraphicsPipelines' as an example.
+        self.functions_with_manual_checks = [
+            'vkCreateInstance',
+            'vkCreateDevice',
+            'vkCreateQueryPool'
+            'vkCreateCommandPool',
             'vkCreateRenderPass',
             'vkCreateRenderPass2KHR',
-            'vkDestroyRenderPass',
-#           'vkCreateDebugUtilsMessengerEXT',
-#           'vkDestroyDebugUtilsMessengerEXT',
-            ]
-        self.functions_with_manual_checks = [
             'vkGetDeviceQueue',
             'vkCreateBuffer',
             'vkCreateImage',
@@ -242,6 +176,18 @@ void parameter_validation::PostCallRecordCreateDevice(VkPhysicalDevice physicalD
             'vkCmdDrawMeshTasksIndirectNV',
             'vkCmdDrawMeshTasksIndirectCountNV',
             ]
+
+        # Commands to ignore
+        self.blacklist = [
+            'vkGetInstanceProcAddr',
+            'vkGetDeviceProcAddr',
+            'vkEnumerateInstanceVersion',
+            'vkEnumerateInstanceLayerProperties',
+            'vkEnumerateInstanceExtensionProperties',
+            'vkEnumerateDeviceLayerProperties',
+            'vkEnumerateDeviceExtensionProperties',
+            ]
+
         # Structure fields to ignore
         self.structMemberBlacklist = { 'VkWriteDescriptorSet' : ['dstSet'] }
         # Validation conditions for some special case struct members that are conditionally validated
@@ -1272,9 +1218,6 @@ void parameter_validation::PostCallRecordCreateDevice(VkPhysicalDevice physicalD
     def processCmdData(self):
         indent = self.incIndent(None)
         for command in self.commands:
-            just_validate = False
-            if command.name in self.validate_only:
-                just_validate = True
             # Skip first parameter if it is a dispatch handle (everything except vkCreateInstance)
             startIndex = 0 if command.name == 'vkCreateInstance' else 1
             lines, unused = self.genFuncBody(command.name, command.params[startIndex:], '', '', None)
@@ -1293,27 +1236,24 @@ void parameter_validation::PostCallRecordCreateDevice(VkPhysicalDevice physicalD
                     ext_test = 'if (!local_data->extensions.%s) skip |= OutputExtensionError(local_data, "%s", %s);\n' % (ext_enable_name, command.name, ext_name_define)
                     lines.insert(0, ext_test)
             if lines:
-                cmdDef = self.getCmdDef(command) + ' {\n'
-                cmdDef = cmdDef.split('VKAPI_CALL vk')[1]
-                cmdDef = 'bool parameter_validation::PreCallValidate' + cmdDef
-                # For a validation-only routine, change the function declaration
-                if just_validate:
-                    cmdDef = '// %s: implementation is in non-generated source\n' % command.name
-                else:
-                    cmdDef += '%sbool skip = false;\n' % indent
-                    for line in lines:
-                        if type(line) is list:
-                            for sub in line:
-                                cmdDef += indent + sub
-                        else:
-                            cmdDef += indent + line
-                    #cmdDef += '\n'
+                func_sig = self.getCmdDef(command) + ' {\n'
+                func_sig = func_sig.split('VKAPI_CALL vk')[1]
+                cmdDef = 'bool parameter_validation::PreCallValidate' + func_sig
+                cmdDef += '%sbool skip = false;\n' % indent
+                # Insert call to custom-written function if present
+                if command.name in self.functions_with_manual_checks:
                     # Generate parameter list for manual fcn and down-chain calls
                     params_text = ''
                     for param in command.params:
                         params_text += '%s, ' % param.name
-                    params_text = params_text[:-2]
-                    # Generate call to manual function if its function pointer is non-null
-                    cmdDef += '%sreturn skip;\n' % indent
-                    cmdDef += '}\n'
+                    params_text = params_text[:-2] + ');\n'
+                    cmdDef += '    skip |= manual_PreCallValidate'+ command.name + '(' + params_text
+                for line in lines:
+                    if type(line) is list:
+                        for sub in line:
+                            cmdDef += indent + sub
+                    else:
+                        cmdDef += indent + line
+                cmdDef += '%sreturn skip;\n' % indent
+                cmdDef += '}\n'
                 self.validation.append(cmdDef)

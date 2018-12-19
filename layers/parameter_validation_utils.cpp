@@ -21,46 +21,49 @@
 
 #define NOMINMAX
 
-#include <limits.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+////////#include <limits.h>
+////////#include <math.h>
+////////#include <stdio.h>
+////////#include <stdlib.h>
+////////#include <string.h>
+////////
+////////#include <iostream>
+////////#include <string>
+////////#include <sstream>
+////////#include <unordered_map>
+////////#include <unordered_set>
+////////#include <vector>
+////////#include <mutex>
+////////
+////////#include "vk_loader_platform.h"
+////////#include "vulkan/vk_layer.h"
+////////#include "vk_layer_config.h"
+////////#include "vk_dispatch_table_helper.h"
+////////#include "vk_typemap_helper.h"
+////////
+////////#include "vk_layer_data.h"
+////////#include "vk_layer_logging.h"
+////////#include "vk_layer_extension_utils.h"
+////////#include "vk_layer_utils.h"
+////////#include "vk_layer_dispatch_table.h"
+////////
+////////#include "parameter_name.h"
+////////#include "parameter_validation.h"
 
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-#include <mutex>
+#include "chassis.h"
 
-#include "vk_loader_platform.h"
-#include "vulkan/vk_layer.h"
-#include "vk_layer_config.h"
-#include "vk_dispatch_table_helper.h"
-#include "vk_typemap_helper.h"
-
-#include "vk_layer_data.h"
-#include "vk_layer_logging.h"
-#include "vk_layer_extension_utils.h"
-#include "vk_layer_utils.h"
-#include "vk_layer_dispatch_table.h"
-
-#include "parameter_name.h"
-#include "parameter_validation.h"
 
 enum RenderPassCreateVersion { RENDER_PASS_VERSION_1 = 0, RENDER_PASS_VERSION_2 = 1 };
 
 static const int MaxParamCheckerStringLength = 256;
 
 template <typename T>
-static inline bool in_inclusive_range(const T &value, const T &min, const T &max) {
+inline bool in_inclusive_range(const T &value, const T &min, const T &max) {
     // Using only < for generality and || for early abort
     return !((value < min) || (max < value));
 }
 
-static bool validate_string(debug_report_data *report_data, const char *apiName, const ParameterName &stringName,
+bool validate_string(debug_report_data *report_data, const char *apiName, const ParameterName &stringName,
                             const std::string &vuid, const char *validateString) {
     bool skip = false;
 
@@ -78,7 +81,7 @@ static bool validate_string(debug_report_data *report_data, const char *apiName,
     return skip;
 }
 
-static bool ValidateDeviceQueueFamily(layer_data *device_data, uint32_t queue_family, const char *cmd_name,
+bool ValidateDeviceQueueFamily(layer_data *device_data, uint32_t queue_family, const char *cmd_name,
                                       const char *parameter_name, const std::string &error_code, bool optional = false) {
     bool skip = false;
 
@@ -99,7 +102,7 @@ static bool ValidateDeviceQueueFamily(layer_data *device_data, uint32_t queue_fa
     return skip;
 }
 
-static bool ValidateQueueFamilies(layer_data *device_data, uint32_t queue_family_count, const uint32_t *queue_families,
+bool ValidateQueueFamilies(layer_data *device_data, uint32_t queue_family_count, const uint32_t *queue_families,
                                   const char *cmd_name, const char *array_parameter_name, const std::string &unique_error_code,
                                   const std::string &valid_error_code, bool optional = false) {
     bool skip = false;
@@ -123,7 +126,7 @@ static bool ValidateQueueFamilies(layer_data *device_data, uint32_t queue_family
     return skip;
 }
 
-static bool validate_api_version(const instance_layer_data *instance_data, uint32_t api_version, uint32_t effective_api_version) {
+bool validate_api_version(const instance_layer_data *instance_data, uint32_t api_version, uint32_t effective_api_version) {
     bool skip = false;
     uint32_t api_version_nopatch = VK_MAKE_VERSION(VK_VERSION_MAJOR(api_version), VK_VERSION_MINOR(api_version), 0);
     if (api_version_nopatch != effective_api_version) {
@@ -145,7 +148,7 @@ static bool validate_api_version(const instance_layer_data *instance_data, uint3
 }
 
 template <typename ExtensionState>
-static bool validate_extension_reqs(const instance_layer_data *instance_data, const ExtensionState &extensions,
+bool validate_extension_reqs(const instance_layer_data *instance_data, const ExtensionState &extensions,
                                     const std::string &vuid, const char *extension_type, const char *extension_name) {
     bool skip = false;
     if (!extension_name) {
@@ -179,7 +182,7 @@ bool validate_instance_extensions(const instance_layer_data *instance_data, cons
     bool skip = false;
     for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
         skip |=
-            validate_extension_reqs(instance_data, instance_data->extensions, "VUID-vkCreateInstance-ppEnabledExtensionNames-01388",
+            validate_extension_reqs(instance_data, instance_extensions, "VUID-vkCreateInstance-ppEnabledExtensionNames-01388",
                                     "instance", pCreateInfo->ppEnabledExtensionNames[i]);
     }
 
@@ -187,15 +190,72 @@ bool validate_instance_extensions(const instance_layer_data *instance_data, cons
 }
 
 template <typename ExtensionState>
-static bool extension_state_by_name(const ExtensionState &extensions, const char *extension_name) {
+bool extension_state_by_name(const ExtensionState &extensions, const char *extension_name) {
     if (!extension_name) return false;  // null strings specify nothing
     auto info = ExtensionState::get_info(extension_name);
     bool state = info.state ? extensions.*(info.state) : false;  // unknown extensions can't be enabled in extension struct
     return state;
 }
 
-bool manual_PreCallValidateDeviceCreateInfo(instance_layer_data *instance_data, VkPhysicalDevice physicalDevice,
-                                            const VkDeviceCreateInfo *pCreateInfo, const DeviceExtensions &extensions) {
+bool StatelessValidation::manual_PreCallValidateCreateInstance(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator,
+                                          VkInstance *pInstance) {
+    bool skip = false;
+    skip |= validate_api_version(my_instance_data, api_version, my_instance_data->api_version);
+    skip |= validate_instance_extensions(my_instance_data, pCreateInfo);
+    return skip;
+}
+
+
+void StatelessValidation::PostCallRecordCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo,
+    const VkAllocationCallbacks *pAllocator, VkDevice *pDevice) {
+
+    // Store queue family data
+    if ((pCreateInfo != nullptr) && (pCreateInfo->pQueueCreateInfos != nullptr)) {
+        for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; ++i) {
+            queueFamilyIndexMap.insert(std::make_pair(pCreateInfo->pQueueCreateInfos[i].queueFamilyIndex,
+                pCreateInfo->pQueueCreateInfos[i].queueCount));
+        }
+    }
+
+    // LUGMAL DO WE NEED THIS?
+    memcpy(&device_limits, &device_properties.limits, sizeof(VkPhysicalDeviceLimits));
+
+    if (device_extensions.vk_nv_shading_rate_image) {
+        // Get the needed shading rate image limits
+        auto shading_rate_image_props = lvl_init_struct<VkPhysicalDeviceShadingRateImagePropertiesNV>();
+        auto prop2 = lvl_init_struct<VkPhysicalDeviceProperties2KHR>(&shading_rate_image_props);
+        instance_dispatch_table.GetPhysicalDeviceProperties2KHR(physicalDevice, &prop2);
+        phys_dev_ext_props.shading_rate_image_props = shading_rate_image_props;
+    }
+
+    if (device_extensions.vk_nv_mesh_shader) {
+        // Get the needed mesh shader limits
+        auto mesh_shader_props = lvl_init_struct<VkPhysicalDeviceMeshShaderPropertiesNV>();
+        auto prop2 = lvl_init_struct<VkPhysicalDeviceProperties2KHR>(&mesh_shader_props);
+        instance_dispatch_table.GetPhysicalDeviceProperties2KHR(physicalDevice, &prop2);
+        phys_dev_ext_props.mesh_shader_props = mesh_shader_props;
+    }
+
+    // Save app-enabled features in this device's validation object
+    // The enabled features can come from either pEnabledFeatures, or from the pNext chain
+    const VkPhysicalDeviceFeatures *enabled_features_found = pCreateInfo->pEnabledFeatures;
+    if ((nullptr == enabled_features_found) && device_extensions.vk_khr_get_physical_device_properties_2) {
+        const auto *features2 = lvl_find_in_chain<VkPhysicalDeviceFeatures2KHR>(pCreateInfo->pNext);
+        if (features2) {
+            enabled_features_found = &(features2->features);
+        }
+    }
+    if (enabled_features_found) {
+        physical_device_features = *enabled_features_found;
+    } else {
+        memset(&physical_device_features, 0, sizeof(VkPhysicalDeviceFeatures));
+    }
+}
+
+
+
+bool StatelessValidation::manual_PreCallValidateCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo,
+                                        const VkAllocationCallbacks *pAllocator, VkDevice *pDevice) {
     bool skip = false;
     bool maint1 = false;
     bool negative_viewport = false;
@@ -208,14 +268,14 @@ bool manual_PreCallValidateDeviceCreateInfo(instance_layer_data *instance_data, 
     }
 
     if ((pCreateInfo->enabledExtensionCount > 0) && (pCreateInfo->ppEnabledExtensionNames != NULL)) {
-        maint1 = extension_state_by_name(extensions, VK_KHR_MAINTENANCE1_EXTENSION_NAME);
-        negative_viewport = extension_state_by_name(extensions, VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_EXTENSION_NAME);
+        maint1 = extension_state_by_name(device_extensions, VK_KHR_MAINTENANCE1_EXTENSION_NAME);
+        negative_viewport = extension_state_by_name(device_extensions, VK_AMD_NEGATIVE_VIEWPORT_HEIGHT_EXTENSION_NAME);
 
         for (size_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
             skip |= validate_string(instance_data->report_data, "vkCreateDevice", "pCreateInfo->ppEnabledExtensionNames",
                                     "VUID-VkDeviceCreateInfo-ppEnabledExtensionNames-parameter",
                                     pCreateInfo->ppEnabledExtensionNames[i]);
-            skip |= validate_extension_reqs(instance_data, extensions, "VUID-vkCreateDevice-ppEnabledExtensionNames-01387",
+            skip |= validate_extension_reqs(instance_data, device_extensions, "VUID-vkCreateDevice-ppEnabledExtensionNames-01387",
                                             "device", pCreateInfo->ppEnabledExtensionNames[i]);
         }
     }
@@ -284,7 +344,7 @@ bool manual_PreCallValidateDeviceCreateInfo(instance_layer_data *instance_data, 
 }
 
 template <typename T>
-static void RecordRenderPass(layer_data *device_data, VkRenderPass renderPass, const T *pCreateInfo) {
+void RecordRenderPass(layer_data *device_data, VkRenderPass renderPass, const T *pCreateInfo) {
     auto &renderpass_state = device_data->renderpasses_states[renderPass];
 
     for (uint32_t subpass = 0; subpass < pCreateInfo->subpassCount; ++subpass) {
@@ -345,7 +405,7 @@ bool pv_CreateRenderPassGeneric(VkDevice device, const RenderPassCreateInfoGener
     return skip;
 }
 
-static bool require_device_extension(layer_data *device_data, bool flag, char const *function_name, char const *extension_name) {
+bool require_device_extension(layer_data *device_data, bool flag, char const *function_name, char const *extension_name) {
     if (!flag) {
         return log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
                        kVUID_PVError_ExtensionNotEnabled,
@@ -356,7 +416,7 @@ static bool require_device_extension(layer_data *device_data, bool flag, char co
     return false;
 }
 
-bool manual_PreCallValidateGetDeviceQueue(VkDevice device, uint32_t queueFamilyIndex, uint32_t queueIndex, VkQueue *pQueue) {
+bool StatelessValidation::manual_PreCallValidateGetDeviceQueue(VkDevice device, uint32_t queueFamilyIndex, uint32_t queueIndex, VkQueue *pQueue) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
 
@@ -374,7 +434,7 @@ bool manual_PreCallValidateGetDeviceQueue(VkDevice device, uint32_t queueFamilyI
     return skip;
 }
 
-bool manual_PreCallValidateCreateBuffer(VkDevice device, const VkBufferCreateInfo *pCreateInfo,
+bool StatelessValidation::manual_PreCallValidateCreateBuffer(VkDevice device, const VkBufferCreateInfo *pCreateInfo,
                                         const VkAllocationCallbacks *pAllocator, VkBuffer *pBuffer) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
@@ -424,7 +484,7 @@ bool manual_PreCallValidateCreateBuffer(VkDevice device, const VkBufferCreateInf
     return skip;
 }
 
-bool manual_PreCallValidateCreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
+bool StatelessValidation::manual_PreCallValidateCreateImage(VkDevice device, const VkImageCreateInfo *pCreateInfo,
                                        const VkAllocationCallbacks *pAllocator, VkImage *pImage) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
@@ -710,7 +770,7 @@ bool manual_PreCallValidateCreateImage(VkDevice device, const VkImageCreateInfo 
     return skip;
 }
 
-bool manual_PreCallValidateCreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo,
+bool StatelessValidation::manual_PreCallValidateCreateImageView(VkDevice device, const VkImageViewCreateInfo *pCreateInfo,
                                            const VkAllocationCallbacks *pAllocator, VkImageView *pView) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
@@ -738,7 +798,7 @@ bool manual_PreCallValidateCreateImageView(VkDevice device, const VkImageViewCre
     return skip;
 }
 
-bool manual_PreCallValidateViewport(const layer_data *device_data, const VkViewport &viewport, const char *fn_name,
+bool StatelessValidation::manual_PreCallValidateViewport(const layer_data *device_data, const VkViewport &viewport, const char *fn_name,
                                     const char *param_name, VkDebugReportObjectTypeEXT object_type, uint64_t object = 0) {
     bool skip = false;
     debug_report_data *report_data = device_data->report_data;
@@ -794,9 +854,9 @@ bool manual_PreCallValidateViewport(const layer_data *device_data, const VkViewp
 
     // height
     bool height_healthy = true;
-    const bool negative_height_enabled = device_data->api_version >= VK_API_VERSION_1_1 ||
-                                         device_data->extensions.vk_khr_maintenance1 ||
-                                         device_data->extensions.vk_amd_negative_viewport_height;
+    const bool negative_height_enabled = api_version >= VK_API_VERSION_1_1 ||
+                                         device_extensions.vk_khr_maintenance1 ||
+                                         device_extensions.vk_amd_negative_viewport_height;
     const auto max_h = device_data->device_limits.maxViewportDimensions[1];
 
     if (!negative_height_enabled && !(viewport.height > 0.0f)) {
@@ -872,7 +932,7 @@ bool manual_PreCallValidateViewport(const layer_data *device_data, const VkViewp
         }
     }
 
-    if (!device_data->extensions.vk_ext_depth_range_unrestricted) {
+    if (!device_extensions.vk_ext_depth_range_unrestricted) {
         // minDepth
         if (!(viewport.minDepth >= 0.0) || !(viewport.minDepth <= 1.0)) {
             skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, object_type, object, "VUID-VkViewport-minDepth-01234",
@@ -1003,7 +1063,7 @@ bool ValidateCoarseSampleOrderCustomNV(layer_data *device_data, const VkCoarseSa
     return skip;
 }
 
-bool manual_PreCallValidateCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount,
+bool StatelessValidation::manual_PreCallValidateCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount,
                                                    const VkGraphicsPipelineCreateInfo *pCreateInfos,
                                                    const VkAllocationCallbacks *pAllocator, VkPipeline *pPipelines) {
     bool skip = false;
@@ -1438,7 +1498,7 @@ bool manual_PreCallValidateCreateGraphicsPipelines(VkDevice device, VkPipelineCa
                         }
                     }
 
-                    if (has_dynamic_viewport_w_scaling_nv && !device_data->extensions.vk_nv_clip_space_w_scaling) {
+                    if (has_dynamic_viewport_w_scaling_nv && !device_extensions.vk_nv_clip_space_w_scaling) {
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                         VK_NULL_HANDLE, kVUID_PVError_ExtensionNotEnabled,
                                         "vkCreateGraphicsPipelines: pCreateInfos[%" PRIu32
@@ -1447,7 +1507,7 @@ bool manual_PreCallValidateCreateGraphicsPipelines(VkDevice device, VkPipelineCa
                                         i);
                     }
 
-                    if (has_dynamic_discard_rectangle_ext && !device_data->extensions.vk_ext_discard_rectangles) {
+                    if (has_dynamic_discard_rectangle_ext && !device_extensions.vk_ext_discard_rectangles) {
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                         VK_NULL_HANDLE, kVUID_PVError_ExtensionNotEnabled,
                                         "vkCreateGraphicsPipelines: pCreateInfos[%" PRIu32
@@ -1456,7 +1516,7 @@ bool manual_PreCallValidateCreateGraphicsPipelines(VkDevice device, VkPipelineCa
                                         i);
                     }
 
-                    if (has_dynamic_sample_locations_ext && !device_data->extensions.vk_ext_sample_locations) {
+                    if (has_dynamic_sample_locations_ext && !device_extensions.vk_ext_sample_locations) {
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                         VK_NULL_HANDLE, kVUID_PVError_ExtensionNotEnabled,
                                         "vkCreateGraphicsPipelines: pCreateInfos[%" PRIu32
@@ -1465,7 +1525,7 @@ bool manual_PreCallValidateCreateGraphicsPipelines(VkDevice device, VkPipelineCa
                                         i);
                     }
 
-                    if (has_dynamic_exclusive_scissor_nv && !device_data->extensions.vk_nv_scissor_exclusive) {
+                    if (has_dynamic_exclusive_scissor_nv && !device_extensions.vk_nv_scissor_exclusive) {
                         skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT,
                                         VK_NULL_HANDLE, kVUID_PVError_ExtensionNotEnabled,
                                         "vkCreateGraphicsPipelines: pCreateInfos[%" PRIu32
@@ -1845,7 +1905,7 @@ bool manual_PreCallValidateCreateGraphicsPipelines(VkDevice device, VkPipelineCa
     return skip;
 }
 
-bool manual_PreCallValidateCreateComputePipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount,
+bool StatelessValidation::manual_PreCallValidateCreateComputePipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount,
                                                   const VkComputePipelineCreateInfo *pCreateInfos,
                                                   const VkAllocationCallbacks *pAllocator, VkPipeline *pPipelines) {
     bool skip = false;
@@ -1857,7 +1917,7 @@ bool manual_PreCallValidateCreateComputePipelines(VkDevice device, VkPipelineCac
     return skip;
 }
 
-bool manual_PreCallValidateCreateSampler(VkDevice device, const VkSamplerCreateInfo *pCreateInfo,
+bool StatelessValidation::manual_PreCallValidateCreateSampler(VkDevice device, const VkSamplerCreateInfo *pCreateInfo,
                                          const VkAllocationCallbacks *pAllocator, VkSampler *pSampler) {
     bool skip = false;
 
@@ -1950,7 +2010,7 @@ bool manual_PreCallValidateCreateSampler(VkDevice device, const VkSamplerCreateI
 
         // If any of addressModeU, addressModeV or addressModeW are VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE, the
         // VK_KHR_sampler_mirror_clamp_to_edge extension must be enabled
-        if (!device_data->extensions.vk_khr_sampler_mirror_clamp_to_edge &&
+        if (!device_extensions.vk_khr_sampler_mirror_clamp_to_edge &&
             ((pCreateInfo->addressModeU == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE) ||
              (pCreateInfo->addressModeV == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE) ||
              (pCreateInfo->addressModeW == VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE))) {
@@ -1962,7 +2022,7 @@ bool manual_PreCallValidateCreateSampler(VkDevice device, const VkSamplerCreateI
         }
 
         // Checks for the IMG cubic filtering extension
-        if (device_data->extensions.vk_img_filter_cubic) {
+        if (device_extensions.vk_img_filter_cubic) {
             if ((pCreateInfo->anisotropyEnable == VK_TRUE) &&
                 ((pCreateInfo->minFilter == VK_FILTER_CUBIC_IMG) || (pCreateInfo->magFilter == VK_FILTER_CUBIC_IMG))) {
                 skip |= log_msg(report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
@@ -2018,7 +2078,7 @@ bool manualPreCallValidateCreateDescriptorSetLayout(VkDevice device, const VkDes
     return skip;
 }
 
-bool manual_PreCallValidateFreeDescriptorSets(VkDevice device, VkDescriptorPool descriptorPool, uint32_t descriptorSetCount,
+bool StatelessValidation::manual_PreCallValidateFreeDescriptorSets(VkDevice device, VkDescriptorPool descriptorPool, uint32_t descriptorSetCount,
                                               const VkDescriptorSet *pDescriptorSets) {
     // Validation for parameters excluded from the generated validation code due to a 'noautovalidity' tag in vk.xml
     // This is an array of handles, where the elements are allowed to be VK_NULL_HANDLE, and does not require any validation beyond
@@ -2027,7 +2087,7 @@ bool manual_PreCallValidateFreeDescriptorSets(VkDevice device, VkDescriptorPool 
                           &pDescriptorSets, true, true, kVUIDUndefined, kVUIDUndefined);
 }
 
-bool manual_PreCallValidateUpdateDescriptorSets(VkDevice device, uint32_t descriptorWriteCount,
+bool StatelessValidation::manual_PreCallValidateUpdateDescriptorSets(VkDevice device, uint32_t descriptorWriteCount,
                                                 const VkWriteDescriptorSet *pDescriptorWrites, uint32_t descriptorCopyCount,
                                                 const VkCopyDescriptorSet *pDescriptorCopies) {
     bool skip = false;
@@ -2163,17 +2223,17 @@ bool manual_PreCallValidateUpdateDescriptorSets(VkDevice device, uint32_t descri
     return skip;
 }
 
-bool manual_PreCallValidateCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo *pCreateInfo,
+bool StatelessValidation::manual_PreCallValidateCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo *pCreateInfo,
                                             const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass) {
     return pv_CreateRenderPassGeneric(device, pCreateInfo, pAllocator, pRenderPass, RENDER_PASS_VERSION_1);
 }
 
-bool pv_vkCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2KHR *pCreateInfo,
-                               const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass) {
+bool StatelessValidation::manual_PreCallValidateCreateRenderPass2KHR(VkDevice device, const VkRenderPassCreateInfo2KHR *pCreateInfo,
+                                                const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass) {
     return pv_CreateRenderPassGeneric(device, pCreateInfo, pAllocator, pRenderPass, RENDER_PASS_VERSION_2);
 }
 
-bool manual_PreCallValidateFreeCommandBuffers(VkDevice device, VkCommandPool commandPool, uint32_t commandBufferCount,
+bool StatelessValidation::manual_PreCallValidateFreeCommandBuffers(VkDevice device, VkCommandPool commandPool, uint32_t commandBufferCount,
                                               const VkCommandBuffer *pCommandBuffers) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
@@ -2187,7 +2247,7 @@ bool manual_PreCallValidateFreeCommandBuffers(VkDevice device, VkCommandPool com
     return skip;
 }
 
-bool manual_PreCallValidateBeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBeginInfo *pBeginInfo) {
+bool StatelessValidation::manual_PreCallValidateBeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBeginInfo *pBeginInfo) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     debug_report_data *report_data = device_data->report_data;
@@ -2235,7 +2295,7 @@ bool manual_PreCallValidateBeginCommandBuffer(VkCommandBuffer commandBuffer, con
     return skip;
 }
 
-bool manual_PreCallValidateCmdSetViewport(VkCommandBuffer commandBuffer, uint32_t firstViewport, uint32_t viewportCount,
+bool StatelessValidation::manual_PreCallValidateCmdSetViewport(VkCommandBuffer commandBuffer, uint32_t firstViewport, uint32_t viewportCount,
                                           const VkViewport *pViewports) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
@@ -2277,7 +2337,7 @@ bool manual_PreCallValidateCmdSetViewport(VkCommandBuffer commandBuffer, uint32_
     return skip;
 }
 
-bool manual_PreCallValidateCmdSetScissor(VkCommandBuffer commandBuffer, uint32_t firstScissor, uint32_t scissorCount,
+bool StatelessValidation::manual_PreCallValidateCmdSetScissor(VkCommandBuffer commandBuffer, uint32_t firstScissor, uint32_t scissorCount,
                                          const VkRect2D *pScissors) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
@@ -2348,7 +2408,7 @@ bool manual_PreCallValidateCmdSetScissor(VkCommandBuffer commandBuffer, uint32_t
     return skip;
 }
 
-bool manual_PreCallValidateCmdSetLineWidth(VkCommandBuffer commandBuffer, float lineWidth) {
+bool StatelessValidation::manual_PreCallValidateCmdSetLineWidth(VkCommandBuffer commandBuffer, float lineWidth) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
     debug_report_data *report_data = device_data->report_data;
@@ -2362,7 +2422,7 @@ bool manual_PreCallValidateCmdSetLineWidth(VkCommandBuffer commandBuffer, float 
     return skip;
 }
 
-bool manual_PreCallValidateCmdDraw(VkCommandBuffer commandBuffer, uint32_t vertexCount, uint32_t instanceCount,
+bool StatelessValidation::manual_PreCallValidateCmdDraw(VkCommandBuffer commandBuffer, uint32_t vertexCount, uint32_t instanceCount,
                                    uint32_t firstVertex, uint32_t firstInstance) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
@@ -2382,7 +2442,7 @@ bool manual_PreCallValidateCmdDraw(VkCommandBuffer commandBuffer, uint32_t verte
     return skip;
 }
 
-bool manual_PreCallValidateCmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t count,
+bool StatelessValidation::manual_PreCallValidateCmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t count,
                                            uint32_t stride) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
@@ -2395,7 +2455,7 @@ bool manual_PreCallValidateCmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuff
     return skip;
 }
 
-bool manual_PreCallValidateCmdDrawIndexedIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
+bool StatelessValidation::manual_PreCallValidateCmdDrawIndexedIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
                                                   uint32_t count, uint32_t stride) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
@@ -2408,7 +2468,7 @@ bool manual_PreCallValidateCmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
     return skip;
 }
 
-bool manual_PreCallValidateCmdCopyImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout,
+bool StatelessValidation::manual_PreCallValidateCmdCopyImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout,
                                         VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount,
                                         const VkImageCopy *pRegions) {
     bool skip = false;
@@ -2416,7 +2476,7 @@ bool manual_PreCallValidateCmdCopyImage(VkCommandBuffer commandBuffer, VkImage s
 
     VkImageAspectFlags legal_aspect_flags =
         VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_METADATA_BIT;
-    if (device_data->extensions.vk_khr_sampler_ycbcr_conversion) {
+    if (device_extensions.vk_khr_sampler_ycbcr_conversion) {
         legal_aspect_flags |= (VK_IMAGE_ASPECT_PLANE_0_BIT_KHR | VK_IMAGE_ASPECT_PLANE_1_BIT_KHR | VK_IMAGE_ASPECT_PLANE_2_BIT_KHR);
     }
 
@@ -2437,7 +2497,7 @@ bool manual_PreCallValidateCmdCopyImage(VkCommandBuffer commandBuffer, VkImage s
     return skip;
 }
 
-bool manual_PreCallValidateCmdBlitImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout,
+bool StatelessValidation::manual_PreCallValidateCmdBlitImage(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout,
                                         VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount,
                                         const VkImageBlit *pRegions, VkFilter filter) {
     bool skip = false;
@@ -2445,7 +2505,7 @@ bool manual_PreCallValidateCmdBlitImage(VkCommandBuffer commandBuffer, VkImage s
 
     VkImageAspectFlags legal_aspect_flags =
         VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_METADATA_BIT;
-    if (device_data->extensions.vk_khr_sampler_ycbcr_conversion) {
+    if (device_extensions.vk_khr_sampler_ycbcr_conversion) {
         legal_aspect_flags |= (VK_IMAGE_ASPECT_PLANE_0_BIT_KHR | VK_IMAGE_ASPECT_PLANE_1_BIT_KHR | VK_IMAGE_ASPECT_PLANE_2_BIT_KHR);
     }
 
@@ -2466,7 +2526,7 @@ bool manual_PreCallValidateCmdBlitImage(VkCommandBuffer commandBuffer, VkImage s
     return skip;
 }
 
-bool manual_PreCallValidateCmdCopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkImage dstImage,
+bool StatelessValidation::manual_PreCallValidateCmdCopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkImage dstImage,
                                                 VkImageLayout dstImageLayout, uint32_t regionCount,
                                                 const VkBufferImageCopy *pRegions) {
     bool skip = false;
@@ -2474,7 +2534,7 @@ bool manual_PreCallValidateCmdCopyBufferToImage(VkCommandBuffer commandBuffer, V
 
     VkImageAspectFlags legal_aspect_flags =
         VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_METADATA_BIT;
-    if (device_data->extensions.vk_khr_sampler_ycbcr_conversion) {
+    if (device_extensions.vk_khr_sampler_ycbcr_conversion) {
         legal_aspect_flags |= (VK_IMAGE_ASPECT_PLANE_0_BIT_KHR | VK_IMAGE_ASPECT_PLANE_1_BIT_KHR | VK_IMAGE_ASPECT_PLANE_2_BIT_KHR);
     }
 
@@ -2489,14 +2549,14 @@ bool manual_PreCallValidateCmdCopyBufferToImage(VkCommandBuffer commandBuffer, V
     return skip;
 }
 
-bool manual_PreCallValidateCmdCopyImageToBuffer(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout,
+bool StatelessValidation::manual_PreCallValidateCmdCopyImageToBuffer(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout,
                                                 VkBuffer dstBuffer, uint32_t regionCount, const VkBufferImageCopy *pRegions) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
 
     VkImageAspectFlags legal_aspect_flags =
         VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_METADATA_BIT;
-    if (device_data->extensions.vk_khr_sampler_ycbcr_conversion) {
+    if (device_extensions.vk_khr_sampler_ycbcr_conversion) {
         legal_aspect_flags |= (VK_IMAGE_ASPECT_PLANE_0_BIT_KHR | VK_IMAGE_ASPECT_PLANE_1_BIT_KHR | VK_IMAGE_ASPECT_PLANE_2_BIT_KHR);
     }
 
@@ -2511,7 +2571,7 @@ bool manual_PreCallValidateCmdCopyImageToBuffer(VkCommandBuffer commandBuffer, V
     return skip;
 }
 
-bool manual_PreCallValidateCmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize dstOffset,
+bool StatelessValidation::manual_PreCallValidateCmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize dstOffset,
                                            VkDeviceSize dataSize, const void *pData) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
@@ -2538,7 +2598,7 @@ bool manual_PreCallValidateCmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuff
     return skip;
 }
 
-bool manual_PreCallValidateCmdFillBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize dstOffset,
+bool StatelessValidation::manual_PreCallValidateCmdFillBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize dstOffset,
                                          VkDeviceSize size, uint32_t data) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
@@ -2565,7 +2625,7 @@ bool manual_PreCallValidateCmdFillBuffer(VkCommandBuffer commandBuffer, VkBuffer
     return skip;
 }
 
-bool manual_PreCallValidateCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR *pCreateInfo,
+bool StatelessValidation::manual_PreCallValidateCreateSwapchainKHR(VkDevice device, const VkSwapchainCreateInfoKHR *pCreateInfo,
                                               const VkAllocationCallbacks *pAllocator, VkSwapchainKHR *pSwapchain) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
@@ -2607,7 +2667,7 @@ bool manual_PreCallValidateCreateSwapchainKHR(VkDevice device, const VkSwapchain
     return skip;
 }
 
-bool manual_PreCallValidateQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo) {
+bool StatelessValidation::manual_PreCallValidateQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR *pPresentInfo) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(queue), layer_data_map);
 
@@ -2615,7 +2675,7 @@ bool manual_PreCallValidateQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR
         const auto *present_regions = lvl_find_in_chain<VkPresentRegionsKHR>(pPresentInfo->pNext);
         if (present_regions) {
             // TODO: This and all other pNext extension dependencies should be added to code-generation
-            skip |= require_device_extension(device_data, device_data->extensions.vk_khr_incremental_present, "vkQueuePresentKHR",
+            skip |= require_device_extension(device_data, device_extensions.vk_khr_incremental_present, "vkQueuePresentKHR",
                                              VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME);
             if (present_regions->swapchainCount != pPresentInfo->swapchainCount) {
                 skip |= log_msg(device_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,
@@ -2642,7 +2702,7 @@ bool manual_PreCallValidateQueuePresentKHR(VkQueue queue, const VkPresentInfoKHR
 }
 
 #ifdef VK_USE_PLATFORM_WIN32_KHR
-bool manual_PreCallValidateCreateWin32SurfaceKHR(VkInstance instance, const VkWin32SurfaceCreateInfoKHR *pCreateInfo,
+bool StatelessValidation::manual_PreCallValidateCreateWin32SurfaceKHR(VkInstance instance, const VkWin32SurfaceCreateInfoKHR *pCreateInfo,
                                                  const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {
     auto device_data = GetLayerDataPtr(get_dispatch_key(instance), instance_layer_data_map);
     bool skip = false;
@@ -2657,7 +2717,7 @@ bool manual_PreCallValidateCreateWin32SurfaceKHR(VkInstance instance, const VkWi
 }
 #endif  // VK_USE_PLATFORM_WIN32_KHR
 
-bool manual_PreCallValidateDebugMarkerSetObjectNameEXT(VkDevice device, const VkDebugMarkerObjectNameInfoEXT *pNameInfo) {
+bool StatelessValidation::manual_PreCallValidateDebugMarkerSetObjectNameEXT(VkDevice device, const VkDebugMarkerObjectNameInfoEXT *pNameInfo) {
     auto device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
     if (pNameInfo->pObjectName) {
         device_data->report_data->debugObjectNameMap->insert(
@@ -2668,7 +2728,7 @@ bool manual_PreCallValidateDebugMarkerSetObjectNameEXT(VkDevice device, const Vk
     return false;
 }
 
-bool manual_PreCallValidateCreateDescriptorPool(VkDevice device, const VkDescriptorPoolCreateInfo *pCreateInfo,
+bool StatelessValidation::manual_PreCallValidateCreateDescriptorPool(VkDevice device, const VkDescriptorPoolCreateInfo *pCreateInfo,
                                                 const VkAllocationCallbacks *pAllocator, VkDescriptorPool *pDescriptorPool) {
     auto device_data = GetLayerDataPtr(get_dispatch_key(device), layer_data_map);
     bool skip = false;
@@ -2706,7 +2766,7 @@ bool manual_PreCallValidateCreateDescriptorPool(VkDevice device, const VkDescrip
     return skip;
 }
 
-bool manual_PreCallValidateCmdDispatch(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY,
+bool StatelessValidation::manual_PreCallValidateCmdDispatch(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY,
                                        uint32_t groupCountZ) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
@@ -2738,7 +2798,7 @@ bool manual_PreCallValidateCmdDispatch(VkCommandBuffer commandBuffer, uint32_t g
     return skip;
 }
 
-bool manual_PreCallValidateCmdDispatchIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset) {
+bool StatelessValidation::manual_PreCallValidateCmdDispatchIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset) {
     bool skip = false;
     layer_data *device_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
 
@@ -2750,7 +2810,7 @@ bool manual_PreCallValidateCmdDispatchIndirect(VkCommandBuffer commandBuffer, Vk
     return skip;
 }
 
-bool manual_PreCallValidateCmdDispatchBaseKHR(VkCommandBuffer commandBuffer, uint32_t baseGroupX, uint32_t baseGroupY,
+bool StatelessValidation::manual_PreCallValidateCmdDispatchBaseKHR(VkCommandBuffer commandBuffer, uint32_t baseGroupX, uint32_t baseGroupY,
                                               uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY,
                                               uint32_t groupCountZ) {
     bool skip = false;
@@ -2805,7 +2865,7 @@ bool manual_PreCallValidateCmdDispatchBaseKHR(VkCommandBuffer commandBuffer, uin
     return skip;
 }
 
-bool manual_PreCallValidateCmdSetExclusiveScissorNV(VkCommandBuffer commandBuffer, uint32_t firstExclusiveScissor,
+bool StatelessValidation::manual_PreCallValidateCmdSetExclusiveScissorNV(VkCommandBuffer commandBuffer, uint32_t firstExclusiveScissor,
                                                     uint32_t exclusiveScissorCount, const VkRect2D *pExclusiveScissors) {
     bool skip = false;
 
@@ -2889,7 +2949,7 @@ bool manual_PreCallValidateCmdSetExclusiveScissorNV(VkCommandBuffer commandBuffe
     return skip;
 }
 
-bool manual_PreCallValidateCmdSetViewportShadingRatePaletteNV(VkCommandBuffer commandBuffer, uint32_t firstViewport,
+bool StatelessValidation::manual_PreCallValidateCmdSetViewportShadingRatePaletteNV(VkCommandBuffer commandBuffer, uint32_t firstViewport,
                                                               uint32_t viewportCount,
                                                               const VkShadingRatePaletteNV *pShadingRatePalettes) {
     bool skip = false;
@@ -2936,7 +2996,7 @@ bool manual_PreCallValidateCmdSetViewportShadingRatePaletteNV(VkCommandBuffer co
     return skip;
 }
 
-bool manual_PreCallValidateCmdSetCoarseSampleOrderNV(VkCommandBuffer commandBuffer, VkCoarseSampleOrderTypeNV sampleOrderType,
+bool StatelessValidation::manual_PreCallValidateCmdSetCoarseSampleOrderNV(VkCommandBuffer commandBuffer, VkCoarseSampleOrderTypeNV sampleOrderType,
                                                      uint32_t customSampleOrderCount,
                                                      const VkCoarseSampleOrderCustomNV *pCustomSampleOrders) {
     bool skip = false;
@@ -2958,7 +3018,7 @@ bool manual_PreCallValidateCmdSetCoarseSampleOrderNV(VkCommandBuffer commandBuff
     return skip;
 }
 
-bool manual_PreCallValidateCmdDrawMeshTasksNV(VkCommandBuffer commandBuffer, uint32_t taskCount, uint32_t firstTask) {
+bool StatelessValidation::manual_PreCallValidateCmdDrawMeshTasksNV(VkCommandBuffer commandBuffer, uint32_t taskCount, uint32_t firstTask) {
     bool skip = false;
 
     layer_data *dev_data = GetLayerDataPtr(get_dispatch_key(commandBuffer), layer_data_map);
@@ -2975,7 +3035,7 @@ bool manual_PreCallValidateCmdDrawMeshTasksNV(VkCommandBuffer commandBuffer, uin
     return skip;
 }
 
-bool manual_PreCallValidateCmdDrawMeshTasksIndirectNV(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
+bool StatelessValidation::manual_PreCallValidateCmdDrawMeshTasksIndirectNV(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
                                                       uint32_t drawCount, uint32_t stride) {
     bool skip = false;
 
@@ -3007,7 +3067,7 @@ bool manual_PreCallValidateCmdDrawMeshTasksIndirectNV(VkCommandBuffer commandBuf
     return skip;
 }
 
-bool manual_PreCallValidateCmdDrawMeshTasksIndirectCountNV(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
+bool StatelessValidation::manual_PreCallValidateCmdDrawMeshTasksIndirectCountNV(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset,
                                                            VkBuffer countBuffer, VkDeviceSize countBufferOffset,
                                                            uint32_t maxDrawCount, uint32_t stride) {
     bool skip = false;
@@ -3041,13 +3101,13 @@ bool manual_PreCallValidateCmdDrawMeshTasksIndirectCountNV(VkCommandBuffer comma
     return skip;
 }
 
-bool manual_PreCallValidateCreateCommandPool(VkDevice device, const VkCommandPoolCreateInfo *pCreateInfo,
+bool StatelessValidation::manual_PreCallValidateCreateCommandPool(VkDevice device, const VkCommandPoolCreateInfo *pCreateInfo,
                                              const VkAllocationCallbacks *pAllocator, VkCommandPool *pCommandPool) {
     return ValidateDeviceQueueFamily(local_data, pCreateInfo->queueFamilyIndex, "vkCreateCommandPool",
                                      "pCreateInfo->queueFamilyIndex", "VUID-vkCreateCommandPool-queueFamilyIndex-01937");
 }
 
-bool manual_PreCallValidateCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo *pCreateInfo,
+bool StatelessValidation::manual_PreCallValidateCreateQueryPool(VkDevice device, const VkQueryPoolCreateInfo *pCreateInfo,
                                            const VkAllocationCallbacks *pAllocator, VkQueryPool *pQueryPool) {
     bool skip = false;
 
@@ -3067,6 +3127,13 @@ bool manual_PreCallValidateCreateQueryPool(VkDevice device, const VkQueryPoolCre
     return skip;
 }
 
+bool StatelessValidation::manual_PreCallValidateEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice, const char *pLayerName,
+                                                              uint32_t *pPropertyCount, VkExtensionProperties *pProperties) {
+    return validate_array(report_data, "vkEnumerateDeviceExtensionProperties", "pPropertyCount", "pProperties", pPropertyCount,
+                          &pProperties, true, false, false, kVUIDUndefined,
+                          "VUID-vkEnumerateDeviceExtensionProperties-pProperties-parameter");
+}
+
 void PostCallRecordCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo *pCreateInfo,
                                     const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass) {
     RecordRenderPass(device_data, *pRenderPass, pCreateInfo);
@@ -3083,9 +3150,3 @@ void PostCallRecordDestroyRenderPass(VkDevice device, VkRenderPass renderPass, c
     renderpasses_states.erase(renderPass);
 }
 
-bool manual_PreCallValidateEnumerateDeviceExtensionProperties(VkPhysicalDevice physicalDevice, const char *pLayerName,
-                                                              uint32_t *pPropertyCount, VkExtensionProperties *pProperties) {
-    return validate_array(report_data, "vkEnumerateDeviceExtensionProperties", "pPropertyCount", "pProperties", pPropertyCount,
-                          &pProperties, true, false, false, kVUIDUndefined,
-                          "VUID-vkEnumerateDeviceExtensionProperties-pProperties-parameter");
-}
