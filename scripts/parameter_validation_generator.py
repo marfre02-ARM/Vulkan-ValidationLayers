@@ -124,6 +124,59 @@ class ParameterValidationOutputGenerator(OutputGenerator):
         OutputGenerator.__init__(self, errFile, warnFile, diagFile)
         self.INDENT_SPACES = 4
         self.declarations = []
+
+        inline_custom_source_preamble = """
+void parameter_validation::PostCallRecordCreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo,
+                                                      const VkAllocationCallbacks *pAllocator, VkDevice *pDevice) {
+
+        // Store queue family data
+        if ((pCreateInfo != nullptr) && (pCreateInfo->pQueueCreateInfos != nullptr)) {
+            for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; ++i) {
+                queueFamilyIndexMap.insert(std::make_pair(pCreateInfo->pQueueCreateInfos[i].queueFamilyIndex,
+                                                          pCreateInfo->pQueueCreateInfos[i].queueCount));
+            }
+        }
+
+        // LUGMAL DO WE NEED THIS?
+        memcpy(&device_limits, &device_properties.limits, sizeof(VkPhysicalDeviceLimits));
+
+        if (device_extensions.vk_nv_shading_rate_image) {
+            // Get the needed shading rate image limits
+            auto shading_rate_image_props = lvl_init_struct<VkPhysicalDeviceShadingRateImagePropertiesNV>();
+            auto prop2 = lvl_init_struct<VkPhysicalDeviceProperties2KHR>(&shading_rate_image_props);
+            instance_dispatch_table.GetPhysicalDeviceProperties2KHR(physicalDevice, &prop2);
+            phys_dev_ext_props.shading_rate_image_props = shading_rate_image_props;
+        }
+
+        if (device_extensions.vk_nv_mesh_shader) {
+            // Get the needed mesh shader limits
+            auto mesh_shader_props = lvl_init_struct<VkPhysicalDeviceMeshShaderPropertiesNV>();
+            auto prop2 = lvl_init_struct<VkPhysicalDeviceProperties2KHR>(&mesh_shader_props);
+            instance_dispatch_table.GetPhysicalDeviceProperties2KHR(physicalDevice, &prop2);
+            phys_dev_ext_props.mesh_shader_props = mesh_shader_props;
+        }
+
+        // Save app-enabled features in this device's validation object
+        // The enabled features can come from either pEnabledFeatures, or from the pNext chain
+        const VkPhysicalDeviceFeatures *enabled_features_found = pCreateInfo->pEnabledFeatures;
+        if ((nullptr == enabled_features_found) && device_extensions.vk_khr_get_physical_device_properties_2) {
+            const auto *features2 = lvl_find_in_chain<VkPhysicalDeviceFeatures2KHR>(pCreateInfo->pNext);
+            if (features2) {
+                enabled_features_found = &(features2->features);
+            }
+        }
+        if (enabled_features_found) {
+            physical_device_features = *enabled_features_found;
+        } else {
+            memset(&physical_device_features, 0, sizeof(VkPhysicalDeviceFeatures));
+        }
+    }
+}
+"""
+
+
+
+
         # Commands to ignore
         self.blacklist = [
             'vkGetInstanceProcAddr',
@@ -136,19 +189,19 @@ class ParameterValidationOutputGenerator(OutputGenerator):
             'vkCmdDebugMarkerEndEXT',
             ]
         self.validate_only = [
-            'vkCreateInstance',
-            'vkDestroyInstance',
-            'vkCreateDevice',
-            'vkDestroyDevice',
+#           'vkCreateInstance',
+#           'vkDestroyInstance',
+#           'vkCreateDevice',
+#           'vkDestroyDevice',
             'vkCreateQueryPool',
-            'vkCreateDebugReportCallbackEXT',
-            'vkDestroyDebugReportCallbackEXT',
-            'vkCreateCommandPool',
+#           'vkCreateDebugReportCallbackEXT',
+#           'vkDestroyDebugReportCallbackEXT',
+#           'vkCreateCommandPool',
             'vkCreateRenderPass',
             'vkCreateRenderPass2KHR',
             'vkDestroyRenderPass',
-            'vkCreateDebugUtilsMessengerEXT',
-            'vkDestroyDebugUtilsMessengerEXT',
+#           'vkCreateDebugUtilsMessengerEXT',
+#           'vkDestroyDebugUtilsMessengerEXT',
             ]
         self.functions_with_manual_checks = [
             'vkGetDeviceQueue',
