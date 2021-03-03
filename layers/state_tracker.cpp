@@ -2122,6 +2122,11 @@ void ValidationStateTracker::PostCallRecordCreateDevice(VkPhysicalDevice gpu, co
 
     GetPhysicalDeviceExtProperties(gpu, dev_ext.vk_khr_fragment_shading_rate, &phys_dev_props->fragment_shading_rate_props);
 
+    // Check features that have device extension enabled but have no corresponding feature struct
+    if (!vulkan_12_features && state_tracker->device_extensions.vk_feature_version_1_2 && dev_ext.vk_khr_draw_indirect_count) {
+        state_tracker->enabled_features.core12.drawIndirectCount = VK_TRUE;
+    }
+
     // Store queue family data
     if (pCreateInfo->pQueueCreateInfos != nullptr) {
         for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; ++i) {
